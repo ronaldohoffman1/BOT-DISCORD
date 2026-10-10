@@ -1,0 +1,36 @@
+{
+  "name": "guild-discord-bot",
+  "version": "1.0.0",
+  "description": "Bot para guilda com seleção automática de cargos para Aion 2, Dota 2, Conan Exiles e Valorant",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "guild",
+    "roles",
+    "aion2",
+    "dota2",
+    "conan-exiles",
+    "valorant"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@distube/ytdl-core": "^4.16.12",
+    "discord.js": "^14.27.0",
+    "dotenv": "^18.0.5",
+    "ffmpeg-static": "^5.3.0",
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.0.8",
+    "play-dl": "^1.9.7"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}
