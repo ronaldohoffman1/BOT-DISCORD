@@ -257,21 +257,22 @@ function wantedType(def, hasForums) {
 
 /**
  * Uma sala está vazia se não tem mensagens (texto), posts (fórum) nem gente conectada (voz).
+ * Se o Discord não responder, a sala conta como NÃO vazia (nunca apaga na dúvida).
  */
 async function isEmpty(channel) {
   if (channel.type === ChannelType.GuildVoice) {
     if (channel.members.size > 0) return false;
     const msgs = await channel.messages.fetch({ limit: 1 }).catch(() => null);
-    return !msgs || msgs.size === 0;
+    return !!msgs && msgs.size === 0;
   }
   if (channel.type === ChannelType.GuildForum) {
     const active = await channel.threads.fetchActive().catch(() => null);
-    const archived = await channel.threads.fetchArchived({ limit: 1 }).catch(() => null);
-    return (!active || active.threads.size === 0) && (!archived || archived.threads.size === 0);
+    const archived = await channel.threads.fetchArchived({ limit: 2 }).catch(() => null);
+    return !!active && !!archived && active.threads.size === 0 && archived.threads.size === 0;
   }
   if (channel.messages) {
     const msgs = await channel.messages.fetch({ limit: 1 }).catch(() => null);
-    return !msgs || msgs.size === 0;
+    return !!msgs && msgs.size === 0;
   }
   return false;
 }

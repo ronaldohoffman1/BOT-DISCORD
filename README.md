@@ -18,10 +18,10 @@ Classes: ⚔️ Gladiador, 🛡️ Templário, 🗡️ Assassino, 🏹 Arqueiro,
 
 ## 🗂️ Salas (definidas em `layout` no `src/config.js`)
 
-- **📌┃INÍCIO** — regras, anúncios, escolha de classe (só leitura)
+- **📌┃INÍCIO** — regras, anúncios, avisos-aion-2 (avisos automáticos), escolha de classe (só leitura)
 - **💬┃COMUNIDADE** — geral, recrutamento, procuro-clã, música, Bate Papo 1/2/3, Recrutamento (voz), Ausente (AFK)
 - **📺┃MÍDIA** — lives, vídeos, prints e clipes
-- **⚔️┃AION 2** — chat, procurar grupo, fórum de builds, atributos, VIP *(só quem escolheu classe)*
+- **⚔️┃AION 2** — chat-guilda, atributos, VIP, árvore de genus *(só quem escolheu classe)*
 - **🐉┃PVE & RAID** — PvE 1/2/3 e Raid 1/2/3 *(só quem escolheu classe)*
 - **⚔️┃PVP & GUERRA** — guerra-de-facções (texto), PvP 1/2/3 e Guerra de Facções 1/2/3 *(só quem escolheu classe)*
 - **🔒┃PRIVADO** — bate-papo, pauta e Sala de Reunião *(só Gods e Comandante)*

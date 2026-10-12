@@ -22,6 +22,7 @@ const {
 const { getGuildSetting, setGuildSetting } = require('./storage');
 const slashCommands = require('./commands');
 const { setupGameChannels } = require('./channelManager');
+const { startAvisos } = require('./avisos');
 
 const client = new Client({
   intents: [
@@ -42,6 +43,9 @@ client.once('clientReady', async () => {
     activities: [{ name: '⚔️ Legião Fight Kings • Aion 2 | /ajuda', type: ActivityType.Custom }],
     status: 'online'
   });
+
+  // Avisos automáticos do Aion 2 (atualizações, Fenda, Festival Shugo)
+  startAvisos(client);
 
   // Registra automaticamente os comandos em cada servidor conectado
   for (const guild of client.guilds.cache.values()) {

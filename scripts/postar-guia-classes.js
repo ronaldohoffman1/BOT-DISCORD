@@ -39,7 +39,7 @@ client.once('clientReady', async () => {
             `**${title}** (${cls.en} no jogo): ${cls.description.toLowerCase()}.\n\n` +
             `Abaixo, as **5 builds PvE** e as **5 PvP** mais vistas no YouTube para o Aion 2 ` +
             `(visualizações em ${DATA}). A maioria é em inglês.\n\n` +
-            `💬 Dúvidas e builds próprias: poste em **📚・builds-e-guias** com a etiqueta *${title}*.`
+            `💬 Dúvidas e builds próprias: converse em **💬・chat-guilda**.`
           )]
       });
 

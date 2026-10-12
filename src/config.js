@@ -62,6 +62,7 @@ module.exports = {
       channels: [
         { name: "📜・regras", type: "text", readOnly: true, topic: "Regras da guilda Fight Kings" },
         { name: "📢・anúncios", type: "text", readOnly: true, topic: "Avisos oficiais da legião" },
+        { name: "📢・avisos-aion-2", type: "text", readOnly: true, topic: "Avisos automáticos: atualizações oficiais, Fenda e Festival Shugo (horário de Brasília)" },
         { name: "🎭・escolha-de-classe", type: "text", readOnly: true, aliases: ["🎭・escolha-de-cargos", "escolha-de-cargos"], topic: "Escolha aqui a sua classe no Aion 2 para liberar as salas" }
       ]
     },
@@ -96,16 +97,8 @@ module.exports = {
       game: "aion2",
       prune: true,
       channels: [
-        { name: "💬・chat-aion", type: "text", topic: "Bate-papo sobre o Aion 2", aliases: ["💬・chat-geral-aion"] },
-        { name: "🔍・procurar-grupo", type: "text", aliases: ["🔍・procurar-pt"], topic: "Monte grupo para masmorra, chefe, raid e PvP" },
-        {
-          name: "📚・builds-e-guias", type: "forum", topic: "Um post por build ou guia. Use a etiqueta da classe!",
-          aliases: ["📢・guias-e-builds", "💡・tips-e-guias-aion"],
-          tags: [
-            ...classes.map(c => ({ name: c.name.split("┃")[1], emoji: c.emoji, aliases: (c.aliases || []).map(a => a.split("┃")[1]) })),
-            { name: "Guia", emoji: "💡" }, { name: "PvP", emoji: "⚔️" }, { name: "PvE", emoji: "🐉" }
-          ]
-        },
+        // (chat-aion virou chat-guilda; procurar-grupo e o fórum builds-e-guias foram removidos pelo dono em 12/10/2026)
+        { name: "💬・chat-guilda", type: "text", aliases: ["💬・chat-aion"] },
         { name: "📊・atributos-e-stats", type: "text", aliases: ["📚-atributos-stats"], topic: "Atributos, stats e como distribuir" },
         { name: "💎・vantagem-vip", type: "text", aliases: ["📚-vantagem-vip"], topic: "Vantagens do VIP / assinatura" },
         { name: "🌳・árvore-de-genus", type: "text", aliases: ["📚-tips-arvore-de-genus"], topic: "Dicas da árvore de Genus" }
@@ -161,6 +154,31 @@ module.exports = {
       }))
     }
   ],
+
+  // Avisos automáticos na sala "channel" (ver src/avisos.js).
+  // Horários no fuso "timeZone" (servidores da América do Sul = horário de Brasília).
+  // Para mudar um horário, edite a lista "hours" e publique de novo.
+  avisos: {
+    channel: "📢・avisos-aion-2",
+    timeZone: "America/Sao_Paulo",
+    mention: "@everyone",
+    steamAppId: 3393110, // Aion 2 na Steam: a NCSoft publica lá os comunicados oficiais
+    newsEveryMinutes: 10,
+    events: [
+      {
+        key: "fenda", name: "Fenda (Rift)", emoji: "🌀", color: 0x8E44AD, mention: "@everyone",
+        hours: [2, 5, 8, 11, 14, 17, 20, 23], minute: 0, leadMinutes: 5,
+        description: "Os portais da Fenda ficam abertos só **10 minutos**. Entrou, você tem cerca de **1 hora** no território inimigo.\n" +
+          "⚔️ Bora de grupo: chama a galera em **⚔️・PvP 1** ou **🏰・Guerra de Facções 1**!"
+      },
+      {
+        key: "shugo", name: "Festival Shugo", emoji: "🎪", color: 0xF1C40F, mention: "@everyone",
+        hours: Array.from({ length: 24 }, (_, h) => h), minute: 0, leadMinutes: 5,
+        description: "Minigame valendo recompensa em **Verteron** e **Altgard**. Entre pelo **Menu Principal → Shugo Festival** durante o lobby de 3 minutos.\n" +
+          "🔑 A Chave de Recompensa dobra o prêmio (recarrega às 16h)."
+      }
+    ]
+  },
 
   // Categorias antigas que são apagadas quando ficam vazias
   obsoleteCategories: ["Canais de Voz"],

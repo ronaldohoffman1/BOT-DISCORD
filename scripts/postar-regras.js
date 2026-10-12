@@ -19,7 +19,7 @@ const rules = [
   ['📢 4. Sem spam e sem divulgação',
    'Não floode, não abuse de menções (@everyone / cargos) e não divulgue outros servidores ou legiões. Lives e vídeos vão em 📺 MÍDIA.'],
   ['🗂️ 5. Use a sala certa',
-   'Builds vão em 📚 builds-e-guias, grupos em 🔍 procurar-grupo e quem quer entrar na legião usa 📝 recrutamento. Mantenha tudo organizado.'],
+   'Papo da guilda em 💬 chat-guilda, builds em 📖 GUIA DAS CLASSES e quem quer entrar na legião usa 📝 recrutamento. Mantenha tudo organizado.'],
   ['🎙️ 6. Conduta nas salas de voz',
    'Sem gritos, barulho alto ou som de fundo atrapalhando. Em PvE, Raid, PvP ou Guerra de Facções, respeite quem está fazendo o call.'],
   ['🛡️ 7. Honra dentro do jogo',
