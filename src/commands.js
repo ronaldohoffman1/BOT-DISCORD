@@ -3,7 +3,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('disco
 const commands = [
   new SlashCommandBuilder()
     .setName('setup-cargos')
-    .setDescription('Envia o painel interativo de seleção de cargos para o canal')
+    .setDescription('Envia o painel de escolha de classe para o canal')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption(option =>
       option.setName('canal')
@@ -14,17 +14,12 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('criar-cargos')
-    .setDescription('Cria automaticamente no servidor todos os cargos e tags dos jogos com emojis e cores')
+    .setDescription('Cria/atualiza as classes e as tags da legião (Comandante, Elite, Legionário)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
     .setName('criar-salas')
-    .setDescription('Cria as categorias e salas privadas que só aparecem para quem selecionar a tag do jogo')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-
-  new SlashCommandBuilder()
-    .setName('setup-gods')
-    .setDescription('Cria/sincroniza a Área Privada dos Gods (acesso restrito apenas para quem tem a tag Gods)')
+    .setDescription('Organiza todas as categorias e salas do servidor')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
@@ -45,11 +40,11 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('cargos')
-    .setDescription('Abre o menu para você escolher ou atualizar suas tags de jogos'),
+    .setDescription('Abre o menu para escolher ou trocar a sua classe no Aion 2'),
 
   new SlashCommandBuilder()
     .setName('ajuda')
-    .setDescription('Mostra os comandos e instruções de uso do bot da guilda')
+    .setDescription('Mostra os comandos e instruções do bot da legião')
 ];
 
 module.exports = commands;

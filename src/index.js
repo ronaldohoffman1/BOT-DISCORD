@@ -22,7 +22,6 @@ const {
 const { getGuildSetting, setGuildSetting } = require('./storage');
 const slashCommands = require('./commands');
 const { setupGameChannels } = require('./channelManager');
-const { setupGodsArea } = require('./godsManager');
 
 const client = new Client({
   intents: [
@@ -40,7 +39,7 @@ client.once('clientReady', async () => {
   console.log('====================================================');
 
   client.user.setPresence({
-    activities: [{ name: '🎮 Gerenciando tags da guilda | /ajuda', type: ActivityType.Custom }],
+    activities: [{ name: '⚔️ Legião Fight Kings • Aion 2 | /ajuda', type: ActivityType.Custom }],
     status: 'online'
   });
 
@@ -72,15 +71,15 @@ client.on('guildMemberAdd', async (member) => {
     if (welcomeChannel && welcomeChannel.isTextBased()) {
       const welcomeEmbed = new EmbedBuilder()
         .setColor(config.embedColor)
-        .setTitle(`🎉 Bem-vindo(a) à Guilda, ${member.displayName}!`)
+        .setTitle(`🎉 Bem-vindo(a) à Fight Kings, ${member.displayName}!`)
         .setDescription(
-          `Olá ${member}! Ficamos felizes em ter você aqui no servidor da guilda **${guild.name}**.\n\n` +
-          `👉 **Próximo passo obrigatório:**\n` +
-          `Vá até ${rolesChannelMention} para selecionar as tags dos jogos que você joga (**Aion 2**, **Dota 2**, **Conan Exiles** e **Valorant**).\n` +
-          `Isso liberará as salas exclusivas e facilitará encontrar grupos para jogar!`
+          `Olá ${member}! Que bom ter você na legião **${guild.name}** do **Aion 2**.\n\n` +
+          `👉 **Próximo passo:** vá em ${rolesChannelMention} e escolha a sua classe ` +
+          `para liberar as salas de PvE, Raid, PvP e Guerra de Facções.\n` +
+          `Quer entrar na legião? Apresente-se em **📝・recrutamento**!`
         )
         .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({ text: 'Sistema de Registro da Guilda' })
+        .setFooter({ text: 'Fight Kings • Aion 2' })
         .setTimestamp();
 
       try {
@@ -95,15 +94,12 @@ client.on('guildMemberAdd', async (member) => {
   if (sendDm) {
     const dmEmbed = new EmbedBuilder()
       .setColor(config.embedColor)
-      .setTitle(`⚔️ Bem-vindo(a) à Guilda em ${guild.name}!`)
+      .setTitle(`⚔️ Bem-vindo(a) à ${guild.name}!`)
       .setDescription(
         `Olá **${member.user.username}**! 👋\n\n` +
-        `Para personalizar o seu perfil na guilda e liberar o acesso às salas certas, por favor acesse ${rolesChannelMention} no servidor e selecione:\n\n` +
-        `• ⚔️ **Aion 2**: Sua classe principal (Gladiador, Templário, Ranger, etc.)\n` +
-        `• 🛡️ **Dota 2**: Sua medalha atual (Arauto até Imortal)\n` +
-        `• 🏕️ **Conan Exiles**: Seu modo preferido (PvE / PvP / Conflito)\n` +
-        `• 🎯 **Valorant**: Seu elo atual (Ferro até Radiante)\n\n` +
-        `Esperamos que aproveite a jogatina com a guilda!`
+        `Para liberar as salas do **Aion 2**, acesse ${rolesChannelMention} no servidor e escolha a sua classe:\n\n` +
+        config.classes.map(c => `• ${c.emoji} **${c.name.split('┃')[1]}** (${c.en})`).join('\n') +
+        `\n\nNa categoria **📖┃GUIA DAS CLASSES** tem as builds PvE e PvP mais vistas de cada classe. Bom jogo!`
       )
       .setFooter({ text: guild.name, iconURL: guild.iconURL() || undefined })
       .setTimestamp();
@@ -221,24 +217,20 @@ client.on('interactionCreate', async (interaction) => {
           return interaction.editReply({ content: result.error });
         }
 
-        let desc = 'As categorias e salas exclusivas foram criadas e configuradas com sucesso!\n\n' +
-                   '🔒 **Privacidade**: As salas estão 100% ocultas para `@everyone` e só aparecem no Discord de quem selecionar a respectiva tag de jogo!\n\n';
+        let desc = '🔒 As salas do Aion 2 só aparecem para quem escolher uma classe; o 🔒┃PRIVADO só para a administração.\n\n';
 
         for (const item of result.report) {
-          desc += `### ${item.categoryName} *(Cargo: \`${item.parentRoleName}\`)*\n`;
-          if (item.categoryCreated) {
-            desc += `📁 Categoria criada com sucesso.\n`;
+          desc += `### ${item.categoryName}${item.categoryCreated ? ' *(nova)*' : ''}\n`;
+          if (item.created.length > 0) {
+            desc += `✨ **Criadas:** ${item.created.map(c => `\`${c}\``).join(', ')}\n`;
           }
-          if (item.createdChannels.length > 0) {
-            desc += `✨ **Salas Criadas:** ${item.createdChannels.map(c => `\`${c}\``).join(', ')}\n`;
+          if (item.renamed.length > 0) {
+            desc += `✏️ **Renomeadas:** ${item.renamed.map(c => `\`${c}\``).join(', ')}\n`;
           }
-          if (item.renamedChannels.length > 0) {
-            desc += `✏️ **Renomeadas:** ${item.renamedChannels.map(c => `\`${c}\``).join(', ')}\n`;
+          if (item.deleted.length > 0) {
+            desc += `🗑️ **Antigas removidas:** ${item.deleted.length}\n`;
           }
-          if (item.deletedChannels.length > 0) {
-            desc += `🗑️ **Duplicadas removidas:** ${item.deletedChannels.length}\n`;
-          }
-          desc += `✅ **Salas no total:** ${item.existingChannels.length + item.createdChannels.length}\n\n`;
+          desc += `✅ **Salas:** ${item.existing.length + item.created.length}\n\n`;
         }
 
         if (result.kept.length > 0) {
@@ -252,9 +244,9 @@ client.on('interactionCreate', async (interaction) => {
 
         const embed = new EmbedBuilder()
           .setColor(0x2ECC71)
-          .setTitle('🏗️ Salas dos Jogos Configuradas com Sucesso!')
+          .setTitle('🏗️ Servidor Organizado!')
           .setDescription(desc)
-          .setFooter({ text: 'Apenas membros com a tag do jogo verão os canais correspondentes!' })
+          .setFooter({ text: 'Fight Kings • Aion 2' })
           .setTimestamp();
 
         return interaction.editReply({ embeds: [embed] });
@@ -262,41 +254,6 @@ client.on('interactionCreate', async (interaction) => {
         console.error('Erro no comando criar-salas:', err);
         return interaction.editReply({
           content: `❌ Erro ao configurar salas: ${err.message}`
-        });
-      }
-    }
-
-    // Comando: /setup-gods
-    if (commandName === 'setup-gods') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-      try {
-        const result = await setupGodsArea(interaction.guild);
-        if (result.error) {
-          return interaction.editReply({ content: result.error });
-        }
-
-        let desc = `👑 **Área Privada dos Gods Configurada com Sucesso!**\n\n` +
-                   `• **Cargo Exclusivo:** \`${result.roleName}\` *(Dourado, separado no topo da lista de membros)*\n` +
-                   `• **Categoria Privada:** \`${result.categoryName}\`\n\n` +
-                   `🔒 **Permissões:** Oculta para @everyone. Apenas membros que receberem a tag \`${result.roleName}\` manualmente de um Administrador conseguirão enxergar e acessar as salas!\n\n` +
-                   `### 📁 Salas Configuradas:\n` +
-                   `• 💬 **\`💬・bate-papo-gods\`** (Texto)\n` +
-                   `• 🎮 **\`🎮・Jogando\`** (Voz)\n` +
-                   `• 💤 **\`💤・Ausente\`** (Voz)\n\n` +
-                   `💡 *Para dar acesso a alguém, basta um Administrador ir no perfil do membro e adicionar o cargo \`${result.roleName}\`!*`;
-
-        const embed = new EmbedBuilder()
-          .setColor(0xF1C40F)
-          .setTitle('👑 Área dos Gods')
-          .setDescription(desc)
-          .setTimestamp();
-
-        return interaction.editReply({ embeds: [embed] });
-      } catch (err) {
-        console.error('Erro no comando setup-gods:', err);
-        return interaction.editReply({
-          content: `❌ Erro ao configurar Área dos Gods: ${err.message}`
         });
       }
     }
@@ -340,25 +297,22 @@ client.on('interactionCreate', async (interaction) => {
       const rolesChannelId = getGuildSetting(interaction.guild.id, 'roles_channel_id');
       const embed = new EmbedBuilder()
         .setColor(config.embedColor)
-        .setTitle('📖 Central de Ajuda - Bot da Guilda')
+        .setTitle('📖 Central de Ajuda — Akaza BOT')
         .setDescription(
-          `Este bot gerencia automaticamente o onboarding, as tags e os canais privados dos membros da guilda nos seguintes jogos:\n` +
-          `• ⚔️ **Aion 2** (Classes de combate)\n` +
-          `• 🛡️ **Dota 2** (Medalhas ranqueadas)\n` +
-          `• 🏕️ **Conan Exiles** (PvE / PvP / Conflito)\n` +
-          `• 🎯 **Valorant** (Todos os elos)\n\n` +
-          (rolesChannelId ? `📍 Canal oficial de cargos: <#${rolesChannelId}>\n\n` : '') +
+          `Este bot cuida das classes, das tags da legião e das salas do servidor **Fight Kings** (Aion 2).\n\n` +
+          (rolesChannelId ? `📍 Escolha sua classe em: <#${rolesChannelId}>\n\n` : '') +
+          `### 🪽 Tags da legião (dadas pela liderança)\n` +
+          config.legionRoles.map(r => `• **${r.name}** — ${r.description}`).join('\n') + '\n\n' +
           `### 👑 Comandos para Administradores:\n` +
-          `• \`/criar-cargos\` : Cria automaticamente no servidor todos os cargos e tags com cores e emojis.\n` +
-          `• \`/criar-salas\` : Cria as categorias e salas privadas que só aparecem para quem tiver a tag do jogo.\n` +
-          `• \`/setup-gods\` : Cria/sincroniza a Área Privada dos Gods (com bate-papo, jogando e ausente).\n` +
-          `• \`/setup-cargos [canal]\` : Envia o painel interativo fixo para o canal selecionado.\n` +
-          `• \`/config-boas-vindas [canal] [enviar_dm]\` : Define onde anunciar membros e se envia DM.\n\n` +
+          `• \`/criar-cargos\` : Cria/atualiza as classes e as tags da legião.\n` +
+          `• \`/criar-salas\` : Organiza todas as categorias e salas do servidor.\n` +
+          `• \`/setup-cargos [canal]\` : Envia o painel de escolha de classe.\n` +
+          `• \`/config-boas-vindas [canal] [enviar_dm]\` : Define onde anunciar novos membros e se envia DM.\n\n` +
           `### 🎮 Comandos para Membros:\n` +
-          `• \`/cargos\` : Abre um painel pessoal para você escolher suas tags onde estiver.\n` +
-          `• \`/ajuda\` : Mostra esta mensagem explicativa.`
+          `• \`/cargos\` : Abre o menu para escolher ou trocar a sua classe.\n` +
+          `• \`/ajuda\` : Mostra esta mensagem.`
         )
-        .setFooter({ text: 'Guild Bot • Desenvolvido com Discord.js' });
+        .setFooter({ text: 'Fight Kings • Aion 2' });
 
       return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
@@ -367,12 +321,7 @@ client.on('interactionCreate', async (interaction) => {
   // Trata Menus Dropdown (StringSelectMenu)
   if (interaction.isStringSelectMenu()) {
     const customId = interaction.customId;
-    let gameKey = null;
-
-    if (customId === config.games.aion2.customId) gameKey = 'aion2';
-    else if (customId === config.games.dota2.customId) gameKey = 'dota2';
-    else if (customId === config.games.conan.customId) gameKey = 'conan';
-    else if (customId === config.games.valorant.customId) gameKey = 'valorant';
+    const gameKey = Object.keys(config.games).find(k => config.games[k].customId === customId) || null;
 
     if (gameKey) {
       const selectedIds = interaction.values;

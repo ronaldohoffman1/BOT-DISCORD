@@ -1,4 +1,16 @@
+const { PermissionFlagsBits } = require('discord.js');
 const config = require('./config');
+
+/**
+ * Busca o cargo pelo nome ou por um nome antigo (aliases). Com rename, corrige o nome.
+ */
+async function findConfigRole(guild, def, { rename = false } = {}) {
+  const names = [def.name, ...(def.aliases || [])].map(n => n.toLowerCase());
+  const role = guild.roles.cache.find(r => r.name.toLowerCase() === def.name.toLowerCase()) ||
+    guild.roles.cache.find(r => names.includes(r.name.toLowerCase()));
+  if (role && rename && role.name !== def.name) await role.setName(def.name, 'Nome atualizado');
+  return role || null;
+}
 
 /**
  * Garante que todos os cargos definidos no config existam no servidor.
@@ -52,7 +64,7 @@ async function ensureRolesExist(guild) {
 
   // 2. Garante todos os cargos (hoist apenas nos cargos pai)
   for (const roleDef of allRoles) {
-    let role = guild.roles.cache.find(r => r.name.toLowerCase() === roleDef.name.toLowerCase());
+    let role = await findConfigRole(guild, roleDef, { rename: true });
     if (role) {
       existing.push(role.name);
       if (role.hoist !== roleDef.hoist) {
@@ -77,7 +89,15 @@ async function ensureRolesExist(guild) {
     }
   }
 
-  // 3. Separadores visuais entre os jogos na lista de cargos
+  // 3. Cargos da legião (Comandante, Elite, Legionário)
+  try {
+    const legion = await ensureLegionRoles(guild);
+    created.push(...legion.created);
+  } catch (err) {
+    errors.push({ name: 'cargos da legião', error: err.message });
+  }
+
+  // 4. Separadores visuais entre os jogos na lista de cargos
   try {
     const sep = await ensureGameSeparators(guild);
     created.push(...sep.created);
@@ -134,8 +154,8 @@ async function handleRoleSelection(interaction, gameKey, selectedIds) {
   // Mapeia roleDef -> guildRole
   const gameRoleMap = new Map();
   for (const roleDef of game.roles) {
-    let guildRole = guild.roles.cache.find(r => r.name.toLowerCase() === roleDef.name.toLowerCase());
-    
+    let guildRole = await findConfigRole(guild, roleDef);
+
     // Se o cargo ainda não existe, cria sob demanda
     if (!guildRole) {
       try {
@@ -240,7 +260,7 @@ async function clearAllGameRoles(interaction) {
       allConfigRoleNames.add(game.parentRole.name.toLowerCase());
     }
     for (const r of game.roles) {
-      allConfigRoleNames.add(r.name.toLowerCase());
+      for (const n of [r.name, ...(r.aliases || [])]) allConfigRoleNames.add(n.toLowerCase());
     }
   }
 
@@ -277,7 +297,7 @@ async function getMemberGameRoles(interaction) {
   for (const [key, game] of Object.entries(config.games)) {
     userRolesByGame[game.title] = [];
     for (const r of game.roles) {
-      const gRole = guild.roles.cache.find(gr => gr.name.toLowerCase() === r.name.toLowerCase());
+      const gRole = await findConfigRole(guild, r);
       if (gRole && member.roles.cache.has(gRole.id)) {
         userRolesByGame[game.title].push(`${r.emoji || '🔹'} **${gRole.name}**`);
       }
@@ -295,12 +315,9 @@ function getSeparatorName(game) {
 }
 
 // Palavras-chave para reconhecer cargos de cada jogo, inclusive os criados manualmente
-// (ex: "Aion: Gladiador", "Dota: Arauto (Herald)", "Conan: PvE")
+// (ex: "Aion: Gladiador")
 const GAME_KEYWORDS = {
-  aion2: /aion/i,
-  dota2: /dota/i,
-  conan: /conan/i,
-  valorant: /valorant|\bvlr\b/i
+  aion2: /aion/i
 };
 
 /**
@@ -322,7 +339,7 @@ async function ensureGameSeparators(guild) {
 
   const separatorNames = new Set(Object.values(config.games).map(g => getSeparatorName(g)));
   const blocks = Object.entries(config.games).map(([key, game]) => {
-    const configNames = new Set(game.roles.map(r => r.name.toLowerCase()));
+    const configNames = new Set(game.roles.flatMap(r => [r.name, ...(r.aliases || [])]).map(n => n.toLowerCase()));
     if (game.parentRole) configNames.add(game.parentRole.name.toLowerCase());
     return { game, keyword: GAME_KEYWORDS[key], configNames, separator: null, roles: [] };
   });
@@ -397,8 +414,53 @@ async function ensureGameSeparators(guild) {
   };
 }
 
+/**
+ * Cria/atualiza os cargos da legião e coloca na ordem do config, logo acima dos cargos de jogo
+ * (abaixo dos Gods e do cargo do bot). Exibidos separadamente na lista de membros.
+ */
+async function ensureLegionRoles(guild) {
+  await guild.roles.fetch();
+  const created = [];
+  const roles = [];
+  for (const def of config.legionRoles || []) {
+    const permissions = def.permissions.map(p => PermissionFlagsBits[p]);
+    let role = await findConfigRole(guild, def, { rename: true });
+    if (!role) {
+      role = await guild.roles.create({
+        name: def.name,
+        color: def.color,
+        hoist: true,
+        mentionable: true,
+        permissions,
+        reason: `Cargo da legião: ${def.description}`
+      });
+      created.push(role.name);
+    } else {
+      await role.edit({ color: def.color, hoist: true, permissions });
+    }
+    roles.push(role);
+  }
+
+  // Posição: em sequência logo abaixo dos Gods (ou do cargo do bot, se não houver Gods)
+  await guild.roles.fetch();
+  const me = guild.members.me;
+  const gods = (config.staffRoles || []).map(n => guild.roles.cache.find(r => r.name === n)).find(Boolean);
+  let above = gods && gods.position < me.roles.highest.position ? gods : me.roles.highest;
+  for (const role of roles) {
+    await guild.roles.fetch();
+    const current = guild.roles.cache.get(role.id);
+    const anchor = guild.roles.cache.get(above.id);
+    const target = current.position < anchor.position ? anchor.position - 1 : anchor.position;
+    if (current.position !== target) await current.setPosition(target);
+    above = current;
+  }
+  return { created, roles };
+}
+
 module.exports = {
   ensureRolesExist,
+  ensureLegionRoles,
+  findConfigRole,
   ensureGameSeparators,
   handleRoleSelection,
   clearAllGameRoles,

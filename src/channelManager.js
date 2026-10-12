@@ -1,20 +1,45 @@
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const config = require('./config');
 
+const MEMBER_ALLOW = [
+  PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.SendMessagesInThreads,
+  PermissionFlagsBits.CreatePublicThreads,
+  PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.Connect,
+  PermissionFlagsBits.Speak,
+  PermissionFlagsBits.Stream,
+  PermissionFlagsBits.AttachFiles,
+  PermissionFlagsBits.EmbedLinks
+];
+const BOT_ALLOW = [
+  PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.ManageChannels,
+  PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.EmbedLinks,
+  PermissionFlagsBits.AttachFiles
+];
+const READ_ONLY_DENY = [
+  PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.CreatePublicThreads,
+  PermissionFlagsBits.CreatePrivateThreads,
+  PermissionFlagsBits.SendMessagesInThreads
+];
+
 /**
- * Organiza o servidor inteiro:
- * - Categorias fixas do topo (📌┃INÍCIO, 💬┃COMUNIDADE) definidas em config.serverLayout
- * - Uma categoria privada por jogo (só aparece para quem tem o cargo 🎮┃Jogo)
- * - Fórum de builds/guias por jogo (vira sala de texto se o servidor não for Comunidade)
+ * Organiza o servidor inteiro conforme config.layout:
+ * - Categorias na ordem do layout, com as permissões do tipo de acesso
  * - Salas com nome antigo (aliases) são renomeadas em vez de duplicadas
- * - Salas que sobram nas categorias são apagadas, mas só se estiverem vazias
+ * - Salas que sobram nas categorias com prune são apagadas, mas só se estiverem vazias
  * - Sala Oficial de Ausente (AFK) do Discord com descida automática após 5 min
  */
 async function setupGameChannels(guild) {
   await guild.roles.fetch();
   await guild.channels.fetch();
 
-  const botMember = guild.members.me;
+  const botMember = await guild.members.fetchMe();
   if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
     return {
       error: '❌ O bot não possui permissão para criar ou gerenciar canais (`Gerenciar Canais` / `Manage Channels`)!'
@@ -23,131 +48,78 @@ async function setupGameChannels(guild) {
 
   const hasForums = guild.features.includes('COMMUNITY');
   const report = [];
-  const layoutReport = [];
-  const kept = []; // salas que sobraram mas não foram apagadas por terem mensagens
-
-  // 1. Categorias fixas do topo
+  const kept = [];
   const layoutCategories = [];
-  for (const catDef of config.serverLayout || []) {
-    const category = await ensureCategory(guild, catDef);
-    layoutCategories.push(category);
 
-    // Salas do layout podem estar em qualquer lugar fora das categorias de jogos/privadas
-    const gameCategoryNames = new Set(Object.values(config.games).map(g => g.categoryName.toLowerCase()));
-    const scope = guild.channels.cache.filter(c => {
-      if (c.type === ChannelType.GuildCategory) return false;
-      const parent = c.parent;
-      if (!parent) return true;
-      if (gameCategoryNames.has(parent.name.toLowerCase())) return false;
-      if (parent.permissionOverwrites.cache.get(guild.id)?.deny.has(PermissionFlagsBits.ViewChannel)) return false;
-      return true;
-    });
+  // Categorias de onde as salas não podem ser "puxadas" por nome (privadas)
+  const privateNames = new Set(
+    config.layout
+      .filter(c => c.access === 'game' || c.access === 'staff' || c.access === 'readOnly')
+      .flatMap(c => [c.name, ...(c.aliases || [])].map(n => n.toLowerCase()))
+  );
 
-    const result = await syncChannels(guild, category, catDef.channels, { scope, hasForums, prune: false });
-    layoutReport.push({ categoryName: category.name, ...result });
-  }
-
-  // 2. Categorias dos jogos
-  for (const game of Object.values(config.games)) {
-    let parentRole = guild.roles.cache.find(
-      r => r.name.toLowerCase() === game.parentRole.name.toLowerCase()
-    );
-    if (!parentRole) {
-      try {
-        parentRole = await guild.roles.create({
-          name: game.parentRole.name,
-          color: game.parentRole.color,
-          hoist: true,
-          reason: `Cargo de acesso às salas de ${game.title}`
-        });
-      } catch (err) {
-        console.error(`Erro ao criar cargo pai de ${game.title}:`, err);
-        continue;
-      }
-    }
-
-    const permissionOverwrites = [
-      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-      {
-        id: parentRole.id,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.SendMessagesInThreads,
-          PermissionFlagsBits.CreatePublicThreads,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.Connect,
-          PermissionFlagsBits.Speak,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.EmbedLinks
-        ]
-      },
-      {
-        id: botMember.id,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.SendMessages]
-      }
-    ];
-
-    let category = guild.channels.cache.find(
-      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === game.categoryName.toLowerCase()
-    );
-    const categoryCreated = !category;
+  for (const catDef of config.layout) {
+    let overwrites;
     try {
-      if (!category) {
-        category = await guild.channels.create({
-          name: game.categoryName,
-          type: ChannelType.GuildCategory,
-          permissionOverwrites
-        });
-      } else {
-        await category.permissionOverwrites.set(permissionOverwrites);
-      }
+      overwrites = await categoryOverwrites(guild, catDef, botMember);
     } catch (err) {
-      console.error(`Erro ao configurar categoria ${game.categoryName}:`, err);
+      console.error(`Erro ao preparar permissões de ${catDef.name}:`, err);
       continue;
     }
 
-    const scope = guild.channels.cache.filter(c => c.parentId === category.id);
-    const result = await syncChannels(guild, category, game.channels, { scope, hasForums, prune: true });
+    let category;
+    let categoryCreated = false;
+    try {
+      ({ category, created: categoryCreated } = await ensureCategory(guild, catDef, overwrites));
+    } catch (err) {
+      console.error(`Erro ao configurar categoria ${catDef.name}:`, err);
+      continue;
+    }
+    layoutCategories.push(category);
+
+    // Salas que podem ser reaproveitadas: as desta categoria e as soltas em categorias públicas
+    await guild.channels.fetch();
+    const scope = guild.channels.cache.filter(c => {
+      if (c.type === ChannelType.GuildCategory) return false;
+      if (c.parentId === category.id) return true;
+      if (!c.parent) return true;
+      return !privateNames.has(c.parent.name.toLowerCase()) &&
+        !c.parent.permissionOverwrites.cache.get(guild.id)?.deny.has(PermissionFlagsBits.ViewChannel);
+    });
+
+    const result = await syncChannels(guild, category, catDef, { scope, hasForums });
     kept.push(...result.kept);
 
-    report.push({
-      gameTitle: game.title,
-      categoryName: category.name,
-      parentRoleName: parentRole.name,
-      categoryCreated,
-      createdChannels: result.created,
-      existingChannels: result.existing,
-      renamedChannels: result.renamed,
-      deletedChannels: result.deleted
-    });
+    // Salas fechadas seguem as permissões da categoria (mantendo extras, ex: bot de música)
+    if (overwrites) await syncChildPermissions(guild, category, overwrites);
+
+    report.push({ categoryName: category.name, categoryCreated, ...result });
   }
 
-  // 3. Apaga categorias antigas que ficaram vazias
+  // Apaga categorias antigas que ficaram vazias
   await guild.channels.fetch();
+  const layoutIds = new Set(layoutCategories.map(c => c.id));
   for (const name of config.obsoleteCategories || []) {
     const cat = guild.channels.cache.find(
-      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === name.toLowerCase()
+      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === name.toLowerCase() && !layoutIds.has(c.id)
     );
     if (cat && guild.channels.cache.filter(c => c.parentId === cat.id).size === 0) {
       await cat.delete('Categoria antiga vazia').catch(err => console.error(`Erro ao apagar ${name}:`, err));
     }
   }
 
-  // 4. Ordem das categorias: layout do topo primeiro, o resto mantém a ordem atual
+  // Ordem das categorias: layout primeiro, o resto mantém a ordem atual
   await guild.channels.fetch();
-  const layoutIds = new Set(layoutCategories.map(c => c.id));
   const others = guild.channels.cache
     .filter(c => c.type === ChannelType.GuildCategory && !layoutIds.has(c.id))
     .sort((a, b) => a.rawPosition - b.rawPosition);
-  const categoryOrder = [...layoutCategories, ...others.values()];
-  const categoryUpdates = categoryOrder
-    .map((c, i) => ({ channel: c.id, position: i, current: c.rawPosition }))
+  const categoryUpdates = [...layoutCategories, ...others.values()]
+    .map((c, i) => ({ channel: c.id, position: i, current: guild.channels.cache.get(c.id)?.rawPosition }))
     .filter(u => u.current !== u.position)
     .map(({ channel, position }) => ({ channel, position }));
   if (categoryUpdates.length) await guild.channels.setPositions(categoryUpdates);
 
-  // 5. Sala Oficial de Ausente (AFK) do Discord
+  // Sala Oficial de Ausente (AFK) do Discord
   const afkChannel = guild.channels.cache.find(
     c => c.type === ChannelType.GuildVoice && c.name.toLowerCase().includes('ausente (afk)')
   );
@@ -162,27 +134,98 @@ async function setupGameChannels(guild) {
 
   return {
     report,
-    layoutReport,
     kept,
     hasForums,
-    afkChannelName: afkChannel ? afkChannel.name : null,
-    afkCreated: false
+    afkChannelName: afkChannel ? afkChannel.name : null
   };
 }
 
 /**
- * Busca a categoria pelo nome (ou nome antigo) e renomeia; cria se não existir.
+ * Permissões da categoria conforme o tipo de acesso. "public" não mexe nas permissões (null).
  */
-async function ensureCategory(guild, catDef) {
+async function categoryOverwrites(guild, catDef, botMember) {
+  const everyone = guild.roles.everyone.id;
+  const bot = { id: botMember.id, allow: BOT_ALLOW };
+
+  if (catDef.access === 'readOnly') {
+    return [
+      { id: everyone, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory], deny: READ_ONLY_DENY },
+      bot
+    ];
+  }
+
+  if (catDef.access === 'game') {
+    const game = config.games[catDef.game];
+    let parentRole = findRole(guild, game.parentRole.name);
+    if (!parentRole) {
+      parentRole = await guild.roles.create({
+        name: game.parentRole.name,
+        color: game.parentRole.color,
+        hoist: true,
+        reason: `Cargo de acesso às salas de ${game.title}`
+      });
+    }
+    return [
+      { id: everyone, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: parentRole.id, allow: MEMBER_ALLOW },
+      bot
+    ];
+  }
+
+  if (catDef.access === 'staff') {
+    const staff = (config.staffRoles || []).map(n => findRole(guild, n)).filter(Boolean);
+    return [
+      { id: everyone, deny: [PermissionFlagsBits.ViewChannel] },
+      ...staff.map(r => ({ id: r.id, allow: [...MEMBER_ALLOW, PermissionFlagsBits.UseExternalEmojis] })),
+      bot
+    ];
+  }
+
+  return null;
+}
+
+function findRole(guild, name) {
+  return guild.roles.cache.find(r => r.name.toLowerCase() === name.toLowerCase());
+}
+
+/**
+ * Busca a categoria pelo nome (ou nome antigo), renomeia e aplica as permissões; cria se não existir.
+ */
+async function ensureCategory(guild, catDef, overwrites) {
   const names = [catDef.name, ...(catDef.aliases || [])].map(n => n.toLowerCase());
   let category = guild.channels.cache.find(
     c => c.type === ChannelType.GuildCategory && names.includes(c.name.toLowerCase())
   );
   if (!category) {
-    return guild.channels.create({ name: catDef.name, type: ChannelType.GuildCategory });
+    category = await guild.channels.create({
+      name: catDef.name,
+      type: ChannelType.GuildCategory,
+      ...(overwrites ? { permissionOverwrites: overwrites } : {})
+    });
+    return { category, created: true };
   }
   if (category.name !== catDef.name) await category.setName(catDef.name);
-  return category;
+  if (overwrites) await category.permissionOverwrites.set(overwrites);
+  return { category, created: false };
+}
+
+/**
+ * Aplica as permissões da categoria em cada sala, preservando permissões extras da sala
+ * (ex: bot de música) que não fazem parte da categoria.
+ */
+async function syncChildPermissions(guild, category, overwrites) {
+  await guild.channels.fetch();
+  const ids = new Set(overwrites.map(o => o.id));
+  for (const ch of guild.channels.cache.filter(c => c.parentId === category.id).values()) {
+    const extras = ch.permissionOverwrites.cache
+      .filter(o => !ids.has(o.id))
+      .map(o => ({ id: o.id, type: o.type, allow: o.allow.bitfield, deny: o.deny.bitfield }));
+    try {
+      await ch.permissionOverwrites.set([...overwrites, ...extras]);
+    } catch (err) {
+      console.error(`Erro ao aplicar permissões em ${ch.name}:`, err.message);
+    }
+  }
 }
 
 function isTextual(type) {
@@ -216,6 +259,22 @@ async function isEmpty(channel) {
   return false;
 }
 
+/**
+ * Etiquetas do fórum, reaproveitando as existentes (pelo nome ou nome antigo) para os posts não perderem a etiqueta.
+ */
+function forumTags(def, channel) {
+  const current = channel?.availableTags || [];
+  return def.tags.map(t => {
+    const names = [t.name, ...(t.aliases || [])].map(n => n.toLowerCase());
+    const existing = current.find(c => names.includes(c.name.toLowerCase()));
+    return {
+      ...(existing ? { id: existing.id } : {}),
+      name: t.name,
+      emoji: t.emoji ? { id: null, name: t.emoji } : null
+    };
+  });
+}
+
 function channelOptions(guild, def, type, hasForums) {
   const options = { name: def.name, type };
   if (type !== ChannelType.GuildVoice) {
@@ -223,22 +282,20 @@ function channelOptions(guild, def, type, hasForums) {
       ? `${def.topic || ''} (Crie um tópico por assunto)`.trim()
       : def.topic || undefined;
   }
-  if (type === ChannelType.GuildForum && def.tags) {
-    options.availableTags = def.tags.map(t => ({ name: t.name, emoji: t.emoji ? { id: null, name: t.emoji } : null }));
-  }
+  if (type === ChannelType.GuildForum && def.tags) options.availableTags = forumTags(def, null);
   if (def.readOnly) {
     options.permissionOverwrites = [
-      { id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.CreatePublicThreads] },
-      { id: guild.members.me.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages] }
+      { id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel], deny: READ_ONLY_DENY },
+      { id: guild.members.me.id, allow: BOT_ALLOW }
     ];
   }
   return options;
 }
 
 /**
- * Deixa a categoria exatamente com as salas da lista, na ordem da lista.
+ * Deixa a categoria com as salas da lista, na ordem da lista.
  */
-async function syncChannels(guild, category, defs, { scope, hasForums, prune }) {
+async function syncChannels(guild, category, catDef, { scope, hasForums }) {
   const created = [];
   const existing = [];
   const renamed = [];
@@ -247,18 +304,23 @@ async function syncChannels(guild, category, defs, { scope, hasForums, prune }) 
   const used = new Set();
   const ordered = [];
 
-  for (const def of defs) {
+  for (const def of catDef.channels) {
     const type = wantedType(def, hasForums);
     const names = [def.name, ...(def.aliases || [])].map(n => n.toLowerCase());
+    const pool = def.moveFrom ? guild.channels.cache : scope;
+    const sameKind = c => (type === ChannelType.GuildVoice ? c.type === ChannelType.GuildVoice : isTextual(c.type));
 
-    // Prefere o nome atual; senão o primeiro nome antigo encontrado
+    // Prefere uma sala que já está nesta categoria; depois o nome atual; depois os nomes antigos
     let channel = null;
-    for (const n of names) {
-      channel = scope.find(c =>
-        !used.has(c.id) &&
-        c.name.toLowerCase() === n &&
-        (type === ChannelType.GuildVoice ? c.type === ChannelType.GuildVoice : isTextual(c.type))
-      );
+    for (const inCategory of [true, false]) {
+      for (const n of names) {
+        channel = pool.find(c =>
+          !used.has(c.id) && c.type !== ChannelType.GuildCategory &&
+          (c.parentId === category.id) === inCategory &&
+          c.name.toLowerCase() === n && sameKind(c)
+        );
+        if (channel) break;
+      }
       if (channel) break;
     }
 
@@ -283,10 +345,10 @@ async function syncChannels(guild, category, defs, { scope, hasForums, prune }) 
         }
         if (channel.parentId !== category.id) {
           edit.parent = category.id;
-          edit.lockPermissions = !def.readOnly;
+          edit.lockPermissions = !def.readOnly && catDef.access !== 'public';
         }
         if (options.topic !== undefined && channel.topic !== options.topic) edit.topic = options.topic;
-        if (options.availableTags && channel.type === ChannelType.GuildForum) edit.availableTags = options.availableTags;
+        if (def.tags && channel.type === ChannelType.GuildForum) edit.availableTags = forumTags(def, channel);
         if (Object.keys(edit).length) await channel.edit(edit);
         if (def.readOnly) await channel.permissionOverwrites.set(options.permissionOverwrites);
         existing.push(def.name);
@@ -299,12 +361,12 @@ async function syncChannels(guild, category, defs, { scope, hasForums, prune }) 
   }
 
   // Remove as salas que sobraram na categoria
-  if (prune) {
+  if (catDef.prune) {
     await guild.channels.fetch();
     const leftovers = guild.channels.cache.filter(c => c.parentId === category.id && !used.has(c.id));
     for (const ch of leftovers.values()) {
       if (await isEmpty(ch)) {
-        await ch.delete('Sala duplicada/antiga removida na reorganização');
+        await ch.delete('Sala antiga removida na reorganização');
         deleted.push(ch.name);
       } else {
         kept.push(`${category.name} / ${ch.name}`);

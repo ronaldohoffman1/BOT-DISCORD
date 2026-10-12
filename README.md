@@ -1,103 +1,50 @@
-# 🎮 Akaza BOT - Gestor da Guilda
+# ⚔️ Akaza BOT — Legião Fight Kings (Aion 2)
 
-Bot completo para onboarding, gerenciamento de tags/cargos e criação de salas privadas para servidores de guildas e comunidades de jogos.
-
----
-
-## 🕹️ Jogos, Tags e Organização Visual com Emojis
-
-### 1. ⚔️ Aion 2 (Classes)
-- **Cargo de Acesso à Categoria:** `🎮┃Aion 2`
-- **Tags de Classes:**
-  - `⚔️┃Gladiador` (Vermelho)
-  - `🛡️┃Templário` (Azul)
-  - `🏹┃Arqueiro` (Verde)
-  - `🗡️┃Assassino` (Roxo)
-  - `🔥┃Feiticeiro` (Laranja)
-  - `🔮┃Invocador` (Ciano)
-  - `💖┃Clérigo` (Amarelo)
-  - `📜┃Chanter` (Âmbar)
-- **Salas Automáticas Privadas:**
-  - `💬・chat-aion`
-  - `🔍・procurar-pt`
-  - `📚・builds-e-guias` (fórum com etiquetas)
-  - `📢・clipes-aion`
-  - `🔊・Aion PT 1`
-  - `🔊・Aion PT 2`
-  - `🔊・Aion PvP / Raid`
-
-### 2. 🛡️ Dota 2 (Medalhas)
-- **Cargo de Acesso à Categoria:** `🎮┃Dota 2`
-- **Tags de Medalhas:**
-  - `🥉┃Dota: Arauto`, `🥉┃Dota: Guardião`, `🥈┃Dota: Cruzado`, `🥈┃Dota: Arconte`, `🥇┃Dota: Lenda`, `🥇┃Dota: Ancestral`, `💎┃Dota: Divino`, `👑┃Dota: Imortal`, `🕹️┃Dota: Casual`
-- **Salas Automáticas Privadas:**
-  - `💬・chat-dota`
-  - `⚔️・procurar-partida`
-  - `📚・builds-e-guias` (fórum com etiquetas)
-  - `📢・clipes-dota`
-  - `🔊・Dota Duo / Trio`
-  - `🔊・Dota Stack 1`
-  - `🔊・Dota Stack 2`
-
-### 3. 🏕️ Conan Exiles (Modos de Jogo)
-- **Cargo de Acesso à Categoria:** `🎮┃Conan Exiles`
-- **Tags de Estilo:**
-  - `🏰┃Conan: PvE`
-  - `⚔️┃Conan: PvP`
-  - `⚖️┃Conan: PvE-Conflito`
-- **Salas Automáticas Privadas:**
-  - `💬・chat-conan`
-  - `⚔️・raids-e-guerra`
-  - `📚・guias-e-bases` (fórum com etiquetas)
-  - `🔊・Voz Clã Conan`
-  - `🔊・Conan Farm / PvE`
-  - `🔊・Conan PvP / Raid`
-
-### 4. 🎯 Valorant (Elos)
-- **Cargo de Acesso à Categoria:** `🎮┃Valorant`
-- **Tags de Elos:**
-  - `⚪┃VLR: Ferro`, `🟤┃VLR: Bronze`, `⚪┃VLR: Prata`, `🟡┃VLR: Ouro`, `🟢┃VLR: Platina`, `🟣┃VLR: Diamante`, `🟢┃VLR: Ascendente`, `🔴┃VLR: Imortal`, `🌟┃VLR: Radiante`, `🕹️┃VLR: Casual`
-- **Salas Automáticas Privadas:**
-  - `💬・chat-valorant`
-  - `🎯・procurar-duo-trio`
-  - `📚・guias-e-lineups` (fórum com etiquetas)
-  - `📢・clipes-valorant`
-  - `🔊・Valorant Duo / Trio`
-  - `🔊・Valorant Full Team 1`
-  - `🔊・Valorant Full Team 2`
+Bot do servidor da legião **Fight Kings** no Aion 2: escolha de classe, tags da legião e organização das salas.
 
 ---
 
-## 🗂️ Organização do Servidor
+## 🪽 Cargos
 
-`/criar-salas` deixa o servidor assim (definido em `serverLayout` e `games` no `src/config.js`):
-- **📌┃INÍCIO**: regras, anúncios e escolha de cargos (somente leitura para membros)
-- **🏆┃FIGHT KINGS**: geral, recrutamento, música, Bate Papo, Recrutamento (voz) e Ausente (AFK)
-- **🔒┃PRIVADO** (Gods) e uma categoria privada por jogo
+| Cargo | Quem | Como recebe |
+|---|---|---|
+| `👑┃Gods` | Administração do servidor | Manual (não é mexido pelo bot) |
+| `👑┃Comandante` | Dono do clã | Manual, pela liderança |
+| `⚜️┃Elite` | Abaixo do Comandante | Manual, pela liderança |
+| `🪽┃Legionário` | Membros da guilda | Manual, pela liderança |
+| `🎮┃Aion 2` + classe | Quem escolheu a classe no painel | Automático (painel em 🎭・escolha-de-classe) |
 
-Salas com nome antigo (`aliases`) são renomeadas, não duplicadas. Salas que sobram nas categorias dos jogos são apagadas **apenas se estiverem vazias**. Salas `forum` viram Fórum quando a Comunidade do servidor está ativa (senão ficam como sala de texto).
+Classes: ⚔️ Gladiador, 🛡️ Templário, 🗡️ Assassino, 🏹 Arqueiro, 🔥 Feiticeiro, 🔮 Invocador, 💖 Clérigo, 📜 Cantor (até 2 por pessoa).
 
----
+## 🗂️ Salas (definidas em `layout` no `src/config.js`)
 
-## 🔒 Como Funciona o Sistema de Ocultar/Exibir Salas?
+- **📌┃INÍCIO** — regras, anúncios, escolha de classe (só leitura)
+- **💬┃COMUNIDADE** — geral, recrutamento, procuro-clã, música, Bate Papo 1/2/3, Recrutamento (voz), Ausente (AFK)
+- **📺┃MÍDIA** — lives, vídeos, prints e clipes
+- **⚔️┃AION 2** — chat, procurar grupo, fórum de builds, atributos, VIP *(só quem escolheu classe)*
+- **🐉┃PVE & RAID** — PvE 1/2/3 e Raid 1/2/3 *(só quem escolheu classe)*
+- **⚔️┃PVP & GUERRA** — guerra-de-facções (texto), PvP 1/2/3 e Guerra de Facções 1/2/3 *(só quem escolheu classe)*
+- **🔒┃PRIVADO** — bate-papo, pauta e Sala de Reunião *(só Gods e Comandante)*
+- **📖┃GUIA DAS CLASSES** — uma sala por classe com as 5 builds PvE e 5 PvP mais vistas no YouTube (só leitura)
 
-1. As categorias de cada jogo são configuradas com permissão privada: `@everyone` não tem permissão para visualizar (`ViewChannel: false`).
-2. Quando um membro escolhe qualquer classe, medalha ou elo no painel interativo, o bot entrega a tag específica **E entrega automaticamente o cargo pai** (ex: `🎮┃Aion 2`).
-3. No mesmo instante, a categoria inteira daquele jogo e todas as suas salas aparecem como mágica para o membro!
-4. Se o membro desmarcar ou remover suas tags daquele jogo, o bot remove o cargo pai e as salas desaparecem do Discord dele novamente.
-
----
-
-## 🛠️ Comandos Slash Disponíveis
+## 🛠️ Comandos
 
 | Comando | Permissão | Descrição |
 |---|---|---|
-| `/criar-cargos` | Administrador | Cria todos os ~30 cargos com cores e emojis organizados |
-| `/criar-salas` | Administrador | Cria as categorias e salas privadas configuradas para cada jogo |
-| `/setup-cargos [canal]` | Administrador | Envia o painel interativo de seleção de cargos para o canal |
-| `/config-boas-vindas` | Administrador | Configura canal de anúncio e envio de DM para novos membros |
-| `/cargos` | Todos | Abre o menu pessoal para escolher ou trocar tags |
-| `/ajuda` | Todos | Exibe instruções completas de uso do bot |
+| `/criar-cargos` | Administrador | Cria/atualiza classes e tags da legião |
+| `/criar-salas` | Administrador | Organiza todas as categorias e salas |
+| `/setup-cargos [canal]` | Administrador | Envia o painel de escolha de classe |
+| `/config-boas-vindas` | Administrador | Canal de anúncio e DM para novos membros |
+| `/cargos` | Todos | Menu pessoal para escolher/trocar a classe |
+| `/ajuda` | Todos | Instruções do bot |
+
+## 📜 Scripts (rodar no PC, na pasta do bot)
+
+- `node scripts/reorganizar-servidor.js` — aplica tudo do config: cargos, salas, ícone e painel
+- `node scripts/postar-guia-classes.js` — publica os vídeos de `assets/videos-classes.json` nas salas das classes
+- `node scripts/postar-regras.js` — publica as regras com o logo
+
+Logo: `assets/logo-icone.png` (ícone do servidor) e `assets/logo-fight-kings.png` (com o nome). Os `.svg` são os arquivos editáveis.
 
 ---
 
