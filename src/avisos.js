@@ -15,12 +15,15 @@ const OFFICIAL_FEED = 'steam_community_announcements';
 function nowParts(timeZone) {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', {
-      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
       hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
     }).formatToParts(new Date()).map(p => [p.type, p.value])
   );
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: +parts.hour, minute: +parts.minute };
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, weekday, hour: +parts.hour, minute: +parts.minute };
 }
+
+
 
 // A sala é guardada pelo ID: se alguém renomear, os avisos continuam indo para ela
 function findChannel(guild) {
@@ -50,6 +53,11 @@ function checkEvents(client) {
       // minuto do aviso (pode cair no dia anterior, ex: evento 00:00 avisado 23:55)
       const alertMin = (start - lead + 1440) % 1440;
       if (alertMin !== nowMin) continue;
+      // eventos só em alguns dias da semana (0 = domingo); o dia é o do evento, não o do aviso
+      if (ev.days) {
+        const eventDay = (now.weekday + (start - lead < 0 ? 1 : 0)) % 7;
+        if (!ev.days.includes(eventDay)) continue;
+      }
 
       const key = `${ev.key}:${now.date}:${pad(hour)}`;
       for (const guild of client.guilds.cache.values()) {

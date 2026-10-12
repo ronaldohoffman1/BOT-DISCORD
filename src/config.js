@@ -177,6 +177,25 @@ module.exports = {
         hours: Array.from({ length: 24 }, (_, h) => h), minute: 0, leadMinutes: 5,
         description: "Minigame valendo recompensa em **Verteron** e **Altgard**. Entre pelo **Menu Principal → Shugo Festival** durante o lobby de 3 minutos.\n" +
           "🔑 A Chave de Recompensa dobra o prêmio (recarrega às 16h)."
+      },
+      {
+        key: "invasao", name: "Invasão Dimensional", emoji: "👹", color: 0xC0392B, mention: "@everyone",
+        hours: Array.from({ length: 24 }, (_, h) => h), minute: 30, leadMinutes: 5,
+        description: "Pode ser **Assalto dos Espíritos**, **Ataque Aéreo de Beritra** ou **Espada Amaldiçoada** — defesa contra ondas de inimigos e chefe.\n" +
+          "📍 A entrada aparece no mapa em **Verteron** ou **Altgard**. Lobby de **3 minutos**, rodada de **10 minutos**; dá para ir sozinho.\n" +
+          "🔑 Chave de Recompensa da Invasão Dimensional: máximo 7, ganha +1 por dia às 16h."
+      },
+      {
+        key: "arena", name: "Arena Tática 10x10", emoji: "🏟️", color: 0x3498DB, mention: "@everyone",
+        hours: [11, 19], minute: 0, leadMinutes: 5,
+        description: "Arena de times **10 contra 10**, partidas de 10 minutos.\n" +
+          "🕒 Aberta das **11h às 14h** e das **19h às 21h**. Junta a legião em **⚔️・PvP 1**!"
+      },
+      {
+        key: "cerco", name: "Cerco ao Artefato", emoji: "🏯", color: 0xD35400, mention: "@everyone",
+        days: [1, 4, 6], hours: [21], minute: 0, leadMinutes: 10,
+        description: "Guerra pelos artefatos no Abismo (segunda, quinta e sábado às 21h). O Corredor do Abismo fica aberto só **5 minutos**!\n" +
+          "🏰 Todo mundo em **🏰・Guerra de Facções 1**."
       }
     ]
   },
