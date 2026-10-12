@@ -346,7 +346,7 @@ async function ensureGameSeparators(guild) {
 
   // Distribui cada cargo de jogo no bloco correspondente
   for (const role of ordered) {
-    if (role.managed) continue;
+    if (role.managed || !role.editable) continue; // o bot não mexe em cargos acima dele
     const own = blocks.find(b => b.separator === null && role.name === getSeparatorName(b.game));
     if (own) {
       own.separator = role;
@@ -388,12 +388,10 @@ async function ensureGameSeparators(guild) {
   const blockRoles = blocks.flatMap(b => (b.separator ? [b.separator, ...b.roles] : b.roles));
   if (blockRoles.length === 0) return { created, moved: 0, summary: [] };
 
-  // Os blocos entram onde estava o cargo de jogo mais alto. Move um cargo por vez,
+  // Os blocos entram onde estava o cargo de jogo (ou separador) mais alto. Move um cargo por vez,
   // de cima para baixo (o reposicionamento em lote é recusado pelo Discord quando
   // a lista tem cargos gerenciados, como o de Server Booster).
-  const topPosition = Math.max(
-    ...blockRoles.filter(r => !separatorNames.has(r.name)).map(r => r.position)
-  );
+  const topPosition = Math.max(...blockRoles.map(r => r.position));
   let moved = 0;
   for (let i = 0; i < blockRoles.length; i++) {
     await guild.roles.fetch();

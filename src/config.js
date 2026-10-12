@@ -102,7 +102,8 @@ module.exports = {
           ]
         },
         { name: "📊・atributos-e-stats", type: "text", aliases: ["📚-atributos-stats"], topic: "Atributos, stats e como distribuir" },
-        { name: "💎・vantagem-vip", type: "text", aliases: ["📚-vantagem-vip"], topic: "Vantagens do VIP / assinatura" }
+        { name: "💎・vantagem-vip", type: "text", aliases: ["📚-vantagem-vip"], topic: "Vantagens do VIP / assinatura" },
+        { name: "🌳・árvore-de-genus", type: "text", aliases: ["📚-tips-arvore-de-genus"], topic: "Dicas da árvore de Genus" }
       ]
     },
     {
@@ -111,8 +112,8 @@ module.exports = {
       game: "aion2",
       prune: true,
       channels: [
-        { name: "🐉・PvE 1", type: "voice", aliases: ["🔊・Aion PVE", "🔊・Aion PT 1"] },
-        { name: "🐉・PvE 2", type: "voice", aliases: ["🔊・Aion FARM", "🔊・Aion PT 2"] },
+        { name: "🐉・PvE 1", type: "voice", aliases: ["🔊・Aion PVE", "🔊・Aion PT 1"], moveFrom: true },
+        { name: "🐉・PvE 2", type: "voice", aliases: ["🔊・Aion FARM", "🔊・Aion PT 2"], moveFrom: true },
         { name: "🐉・PvE 3", type: "voice" },
         { name: "🔥・Raid 1", type: "voice" },
         { name: "🔥・Raid 2", type: "voice" },
@@ -126,7 +127,7 @@ module.exports = {
       prune: true,
       channels: [
         { name: "🏰・guerra-de-facções", type: "text", topic: "Chamadas e estratégia para a guerra Elyos x Asmodianos (Abismo, fortalezas, invasões)" },
-        { name: "⚔️・PvP 1", type: "voice", aliases: ["🔊・Aion PvP / Raid"] },
+        { name: "⚔️・PvP 1", type: "voice", aliases: ["🔊・Aion PvP / Raid"], moveFrom: true },
         { name: "⚔️・PvP 2", type: "voice" },
         { name: "⚔️・PvP 3", type: "voice" },
         { name: "🏰・Guerra de Facções 1", type: "voice" },

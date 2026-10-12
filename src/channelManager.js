@@ -50,6 +50,8 @@ async function setupGameChannels(guild) {
   const report = [];
   const kept = [];
   const layoutCategories = [];
+  const usedIds = new Set();
+  const pruneCategories = [];
 
   // Categorias de onde as salas não podem ser "puxadas" por nome (privadas)
   const privateNames = new Set(
@@ -87,13 +89,28 @@ async function setupGameChannels(guild) {
         !c.parent.permissionOverwrites.cache.get(guild.id)?.deny.has(PermissionFlagsBits.ViewChannel);
     });
 
-    const result = await syncChannels(guild, category, catDef, { scope, hasForums });
-    kept.push(...result.kept);
+    const result = await syncChannels(guild, category, catDef, { scope, hasForums, usedIds });
+    if (catDef.prune) pruneCategories.push({ category, result });
 
     // Salas fechadas seguem as permissões da categoria (mantendo extras, ex: bot de música)
     if (overwrites) await syncChildPermissions(guild, category, overwrites);
 
     report.push({ categoryName: category.name, categoryCreated, ...result });
+  }
+
+  // Remove as salas que sobraram nas categorias com prune (depois de todas as categorias,
+  // para uma sala antiga poder ser reaproveitada por outra categoria)
+  await guild.channels.fetch();
+  for (const { category, result } of pruneCategories) {
+    const leftovers = guild.channels.cache.filter(c => c.parentId === category.id && !usedIds.has(c.id));
+    for (const ch of leftovers.values()) {
+      if (await isEmpty(ch)) {
+        await ch.delete('Sala antiga removida na reorganização');
+        result.deleted.push(ch.name);
+      } else {
+        kept.push(`${category.name} / ${ch.name}`);
+      }
+    }
   }
 
   // Apaga categorias antigas que ficaram vazias
@@ -295,13 +312,12 @@ function channelOptions(guild, def, type, hasForums) {
 /**
  * Deixa a categoria com as salas da lista, na ordem da lista.
  */
-async function syncChannels(guild, category, catDef, { scope, hasForums }) {
+async function syncChannels(guild, category, catDef, { scope, hasForums, usedIds }) {
   const created = [];
   const existing = [];
   const renamed = [];
   const deleted = [];
-  const kept = [];
-  const used = new Set();
+  const used = usedIds;
   const ordered = [];
 
   for (const def of catDef.channels) {
@@ -345,7 +361,7 @@ async function syncChannels(guild, category, catDef, { scope, hasForums }) {
         }
         if (channel.parentId !== category.id) {
           edit.parent = category.id;
-          edit.lockPermissions = !def.readOnly && catDef.access !== 'public';
+          edit.lockPermissions = !def.readOnly;
         }
         if (options.topic !== undefined && channel.topic !== options.topic) edit.topic = options.topic;
         if (def.tags && channel.type === ChannelType.GuildForum) edit.availableTags = forumTags(def, channel);
@@ -360,25 +376,11 @@ async function syncChannels(guild, category, catDef, { scope, hasForums }) {
     }
   }
 
-  // Remove as salas que sobraram na categoria
-  if (catDef.prune) {
-    await guild.channels.fetch();
-    const leftovers = guild.channels.cache.filter(c => c.parentId === category.id && !used.has(c.id));
-    for (const ch of leftovers.values()) {
-      if (await isEmpty(ch)) {
-        await ch.delete('Sala antiga removida na reorganização');
-        deleted.push(ch.name);
-      } else {
-        kept.push(`${category.name} / ${ch.name}`);
-      }
-    }
-  }
-
   // Ordem das salas dentro da categoria (o Discord sempre mostra texto antes de voz)
   const updates = ordered.map((c, i) => ({ channel: c.id, position: i }));
   if (updates.length) await guild.channels.setPositions(updates);
 
-  return { created, existing, renamed, deleted, kept };
+  return { created, existing, renamed, deleted };
 }
 
 module.exports = {
