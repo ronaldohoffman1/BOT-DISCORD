@@ -10,22 +10,12 @@ const { getGuildSetting } = require('../src/storage');
 // Deixa o servidor igual ao src/config.js. Pode rodar de novo quantas vezes quiser:
 //   node scripts/reorganizar-servidor.js
 // 1. Apaga os cargos dos jogos que saíram do servidor (Dota 2, Conan, Valorant)
-// 2. Cria/atualiza classes e cargos da legião (Comandante, Elite, Legionário)
-// 3. Dá o Legionário para os membros da lista abaixo
-// 4. Organiza categorias e salas
-// 5. Coloca o logo como ícone do servidor
-// 6. Envia de novo o painel de escolha de classe
+// 2. Cria/atualiza classes e cargos da legião (Comandante, Elite, Legionário, Amigos)
+// 3. Organiza categorias e salas
+// 4. Coloca o logo como ícone do servidor
+// 5. Envia de novo o painel de escolha de classe
 
 const OBSOLETE_ROLE = /dota|conan|valorant|vlr:/i;
-
-// Membros da guilda que recebem 🪽┃Legionário (Douglas Bannach, Williams29, L3R1N, hoffmaNg0d, Amazing)
-const LEGIONARIOS = [
-  '171750143836684288',
-  '220366174934925312',
-  '651576028770205706',
-  '830910839346561134',
-  '1215427765504057367'
-];
 
 const ICON = path.join(__dirname, '..', 'assets', 'logo-icone.png');
 
@@ -52,17 +42,7 @@ client.once('clientReady', async () => {
     if (roles.created.length) console.log(`✨ Cargos criados: ${roles.created.join(', ')}`);
     for (const e of roles.errors) console.log(`⚠️  ${e.name}: ${e.error}`);
 
-    // 3. Legionários
-    const legionario = guild.roles.cache.find(r => r.name === config.legionRoles[2].name);
-    for (const id of LEGIONARIOS) {
-      const member = guild.members.cache.get(id);
-      if (member && !member.roles.cache.has(legionario.id)) {
-        await member.roles.add(legionario, 'Membro da guilda');
-        console.log(`🪽 ${legionario.name} → ${member.displayName}`);
-      }
-    }
-
-    // 4. Salas
+    // 3. Salas
     const result = await setupGameChannels(guild);
     if (result.error) throw new Error(result.error);
     for (const r of result.report) {
@@ -72,11 +52,11 @@ client.once('clientReady', async () => {
     }
     for (const k of result.kept) console.log(`⚠️  Sobrou (tem mensagens): ${k}`);
 
-    // 5. Ícone
+    // 4. Ícone
     await guild.setIcon(ICON, 'Novo logo da Fight Kings');
     console.log('🖼️  Ícone do servidor atualizado');
 
-    // 6. Painel de escolha de classe
+    // 5. Painel de escolha de classe
     const rolesChannelId = getGuildSetting(guild.id, 'roles_channel_id');
     const channel = rolesChannelId && guild.channels.cache.get(rolesChannelId);
     if (channel) {

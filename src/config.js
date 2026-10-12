@@ -40,6 +40,11 @@ module.exports = {
       name: "🪽┃Legionário", color: "#5DADE2",
       description: "Membro da guilda",
       permissions: []
+    },
+    {
+      name: "🤝┃Amigos", color: "#95A5A6",
+      description: "Amigo da guilda (não é membro)",
+      permissions: []
     }
   ],
 
