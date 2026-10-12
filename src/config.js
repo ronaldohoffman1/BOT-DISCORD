@@ -62,7 +62,7 @@ module.exports = {
       channels: [
         { name: "📜・regras", type: "text", readOnly: true, topic: "Regras da guilda Fight Kings" },
         { name: "📢・anúncios", type: "text", readOnly: true, topic: "Avisos oficiais da legião" },
-        { name: "📢・avisos-aion-2", type: "text", readOnly: true, topic: "Avisos automáticos: atualizações oficiais, Fenda e Festival Shugo (horário de Brasília)" },
+        { name: "📢・avisos-rotações-aion2", type: "text", readOnly: true, aliases: ["📢・avisos-aion-2"], topic: "Avisos automáticos: atualizações oficiais, Fenda e Festival Shugo (horário de Brasília)" },
         { name: "🎭・escolha-de-classe", type: "text", readOnly: true, aliases: ["🎭・escolha-de-cargos", "escolha-de-cargos"], topic: "Escolha aqui a sua classe no Aion 2 para liberar as salas" }
       ]
     },
@@ -159,7 +159,8 @@ module.exports = {
   // Horários no fuso "timeZone" (servidores da América do Sul = horário de Brasília).
   // Para mudar um horário, edite a lista "hours" e publique de novo.
   avisos: {
-    channel: "📢・avisos-aion-2",
+    channel: "📢・avisos-rotações-aion2",
+    aliases: ["📢・avisos-aion-2"],
     timeZone: "America/Sao_Paulo",
     mention: "@everyone",
     steamAppId: 3393110, // Aion 2 na Steam: a NCSoft publica lá os comunicados oficiais

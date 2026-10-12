@@ -22,8 +22,15 @@ function nowParts(timeZone) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: +parts.hour, minute: +parts.minute };
 }
 
+// A sala é guardada pelo ID: se alguém renomear, os avisos continuam indo para ela
 function findChannel(guild) {
-  return guild.channels.cache.find(c => c.name === config.avisos.channel && c.isTextBased());
+  const savedId = getGuildSetting(guild.id, 'avisos_channel_id');
+  const saved = savedId && guild.channels.cache.get(savedId);
+  if (saved) return saved;
+  const names = [config.avisos.channel, ...(config.avisos.aliases || [])];
+  const channel = guild.channels.cache.find(c => names.includes(c.name) && c.isTextBased());
+  if (channel) setGuildSetting(guild.id, 'avisos_channel_id', channel.id);
+  return channel;
 }
 
 const pad = n => String(n).padStart(2, '0');
