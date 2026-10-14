@@ -93,7 +93,7 @@ async function setupGameChannels(guild) {
     if (catDef.prune) pruneCategories.push({ category, result });
 
     // Salas fechadas seguem as permissões da categoria (mantendo extras, ex: bot de música)
-    if (overwrites) await syncChildPermissions(guild, category, overwrites);
+    if (overwrites) await syncChildPermissions(guild, category, overwrites, result.readOnlyIds);
 
     report.push({ categoryName: category.name, categoryCreated, ...result });
   }
@@ -230,10 +230,11 @@ async function ensureCategory(guild, catDef, overwrites) {
  * Aplica as permissões da categoria em cada sala, preservando permissões extras da sala
  * (ex: bot de música) que não fazem parte da categoria.
  */
-async function syncChildPermissions(guild, category, overwrites) {
+async function syncChildPermissions(guild, category, overwrites, skipIds = new Set()) {
   await guild.channels.fetch();
   const ids = new Set(overwrites.map(o => o.id));
-  for (const ch of guild.channels.cache.filter(c => c.parentId === category.id).values()) {
+  // Salas só de leitura têm permissões próprias (ex: escolha-de-classe aberta a todos numa categoria fechada)
+  for (const ch of guild.channels.cache.filter(c => c.parentId === category.id && !skipIds.has(c.id)).values()) {
     const extras = ch.permissionOverwrites.cache
       .filter(o => !ids.has(o.id))
       .map(o => ({ id: o.id, type: o.type, allow: o.allow.bitfield, deny: o.deny.bitfield }));
@@ -320,6 +321,7 @@ async function syncChannels(guild, category, catDef, { scope, hasForums, usedIds
   const deleted = [];
   const used = usedIds;
   const ordered = [];
+  const readOnlyIds = new Set();
 
   for (const def of catDef.channels) {
     const type = wantedType(def, hasForums);
@@ -371,6 +373,7 @@ async function syncChannels(guild, category, catDef, { scope, hasForums, usedIds
         existing.push(def.name);
       }
       used.add(channel.id);
+      if (def.readOnly) readOnlyIds.add(channel.id);
       ordered.push(channel);
     } catch (err) {
       console.error(`Erro ao configurar sala ${def.name}:`, err);
@@ -381,7 +384,7 @@ async function syncChannels(guild, category, catDef, { scope, hasForums, usedIds
   const updates = ordered.map((c, i) => ({ channel: c.id, position: i }));
   if (updates.length) await guild.channels.setPositions(updates);
 
-  return { created, existing, renamed, deleted };
+  return { created, existing, renamed, deleted, readOnlyIds };
 }
 
 module.exports = {

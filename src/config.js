@@ -57,13 +57,18 @@ module.exports = {
   staffRoles: [GODS, "👑┃Comandante"],
   layout: [
     {
+      name: "👋┃SAUDAÇÕES",
+      access: "public",
+      channels: [
+        { name: "👋・boas-vindas", type: "text", readOnly: true, topic: "Boas-vindas aos novos membros e como pegar sua tag" }
+      ]
+    },
+    {
       name: "📌┃INÍCIO",
       access: "public",
       channels: [
         { name: "📜・regras", type: "text", readOnly: true, topic: "Regras da guilda Fight Kings" },
-        { name: "📢・anúncios", type: "text", readOnly: true, topic: "Avisos oficiais da legião" },
-        { name: "📢・avisos-rotações-aion2", type: "text", readOnly: true, aliases: ["📢・avisos-aion-2"], topic: "Avisos automáticos: atualizações oficiais, Fenda e Festival Shugo (horário de Brasília)" },
-        { name: "🎭・escolha-de-classe", type: "text", readOnly: true, aliases: ["🎭・escolha-de-cargos", "escolha-de-cargos"], topic: "Escolha aqui a sua classe no Aion 2 para liberar as salas" }
+        { name: "📢・anúncios", type: "text", readOnly: true, topic: "Avisos oficiais da legião" }
       ]
     },
     {
@@ -95,20 +100,23 @@ module.exports = {
       name: "⚔️┃AION 2",
       access: "game",
       game: "aion2",
-      prune: true,
+      // sem prune: o dono cria salas aqui na mão (ex: farm, steam-url) e o bot não pode apagar
       channels: [
-        // (chat-aion virou chat-guilda; procurar-grupo e o fórum builds-e-guias foram removidos pelo dono em 12/10/2026)
+        // Igual ao servidor em 14/10/2026 (o dono moveu escolha-de-classe e avisos para cá)
+        { name: "🎭・escolha-de-classe", type: "text", readOnly: true, aliases: ["🎭・escolha-de-cargos", "escolha-de-cargos"], topic: "Escolha aqui a sua classe no Aion 2 para liberar as salas" },
+        { name: "💎・vantagem-vip", type: "text", aliases: ["📚-vantagem-vip"], topic: "Vantagens do VIP / assinatura" },
         { name: "💬・chat-guilda", type: "text", aliases: ["💬・chat-aion"] },
         { name: "📊・atributos-e-stats", type: "text", aliases: ["📚-atributos-stats"], topic: "Atributos, stats e como distribuir" },
-        { name: "💎・vantagem-vip", type: "text", aliases: ["📚-vantagem-vip"], topic: "Vantagens do VIP / assinatura" },
-        { name: "🌳・árvore-de-genus", type: "text", aliases: ["📚-tips-arvore-de-genus"], topic: "Dicas da árvore de Genus" }
+        { name: "🌳・árvore-de-genus", type: "text", aliases: ["📚-tips-arvore-de-genus"], topic: "Dicas da árvore de Genus" },
+        { name: "📢・avisos-rotações-aion2", type: "text", readOnly: true, aliases: ["📢・avisos-aion-2"], topic: "Avisos automáticos: atualizações oficiais, Fenda e Festival Shugo (horário de Brasília)" },
+        { name: "farm", type: "text" },
+        { name: "steam-url", type: "text" }
       ]
     },
     {
       name: "🐉┃PVE & RAID",
       access: "game",
       game: "aion2",
-      prune: true,
       channels: [
         { name: "🐉・PvE 1", type: "voice", aliases: ["🔊・Aion PVE", "🔊・Aion PT 1"], moveFrom: true },
         { name: "🐉・PvE 2", type: "voice", aliases: ["🔊・Aion FARM", "🔊・Aion PT 2"], moveFrom: true },
@@ -122,7 +130,6 @@ module.exports = {
       name: "⚔️┃PVP & GUERRA",
       access: "game",
       game: "aion2",
-      prune: true,
       channels: [
         { name: "🏰・guerra-de-facções", type: "text", topic: "Chamadas e estratégia para a guerra Elyos x Asmodianos (Abismo, fortalezas, invasões)" },
         { name: "⚔️・PvP 1", type: "voice", aliases: ["🔊・Aion PvP / Raid"], moveFrom: true },
@@ -154,6 +161,9 @@ module.exports = {
       }))
     }
   ],
+
+  // Sala onde o bot dá boas-vindas a quem entra (ver src/welcome.js)
+  welcomeChannel: "👋・boas-vindas",
 
   // Avisos automáticos na sala "channel" (ver src/avisos.js).
   // Horários no fuso "timeZone" (servidores da América do Sul = horário de Brasília).

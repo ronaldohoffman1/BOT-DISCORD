@@ -23,6 +23,7 @@ const { getGuildSetting, setGuildSetting } = require('./storage');
 const slashCommands = require('./commands');
 const { setupGameChannels } = require('./channelManager');
 const { startAvisos } = require('./avisos');
+const { findWelcomeChannel, welcomeMessage } = require('./welcome');
 
 const client = new Client({
   intents: [
@@ -64,33 +65,17 @@ client.on('guildMemberAdd', async (member) => {
   console.log(`👋 Novo membro entrou no servidor ${guild.name}: ${member.user.tag} (${member.id})`);
 
   const rolesChannelId = getGuildSetting(guild.id, 'roles_channel_id');
-  const welcomeChannelId = getGuildSetting(guild.id, 'welcome_channel_id');
   const sendDm = getGuildSetting(guild.id, 'send_dm', true);
 
   const rolesChannelMention = rolesChannelId ? `<#${rolesChannelId}>` : 'o canal de cargos da guilda';
 
-  // 1. Enviar mensagem no canal de boas-vindas do servidor (se configurado)
-  if (welcomeChannelId) {
-    const welcomeChannel = guild.channels.cache.get(welcomeChannelId);
-    if (welcomeChannel && welcomeChannel.isTextBased()) {
-      const welcomeEmbed = new EmbedBuilder()
-        .setColor(config.embedColor)
-        .setTitle(`🎉 Bem-vindo(a) à Fight Kings, ${member.displayName}!`)
-        .setDescription(
-          `Olá ${member}! Que bom ter você na legião **${guild.name}** do **Aion 2**.\n\n` +
-          `👉 **Próximo passo:** vá em ${rolesChannelMention} e escolha a sua classe ` +
-          `para liberar as salas de PvE, Raid, PvP e Guerra de Facções.\n` +
-          `Quer entrar na legião? Apresente-se em **📝・recrutamento**!`
-        )
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({ text: 'Fight Kings • Aion 2' })
-        .setTimestamp();
-
-      try {
-        await welcomeChannel.send({ content: `Bem-vindo(a) ${member}!`, embeds: [welcomeEmbed] });
-      } catch (err) {
-        console.error('Erro ao enviar mensagem no canal de boas-vindas:', err.message);
-      }
+  // 1. Boas-vindas na sala 👋・boas-vindas, com o passo a passo e o botão para pegar a tag
+  const welcomeChannel = findWelcomeChannel(guild);
+  if (welcomeChannel) {
+    try {
+      await welcomeChannel.send(welcomeMessage(member));
+    } catch (err) {
+      console.error('Erro ao enviar mensagem no canal de boas-vindas:', err.message);
     }
   }
 
