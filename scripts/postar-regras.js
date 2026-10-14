@@ -29,9 +29,35 @@ const rules = [
   ['👑 9. Respeite a liderança',
    'As decisões do **👑 Comandante**, da **⚜️ Elite** e da administração devem ser respeitadas. Discordou? Converse em particular com um líder.'],
   ['📅 10. Atividade',
-   'Vai ficar um tempo ausente? Avise. Membros inativos sem aviso podem perder a tag 🪽 Legionário.'],
+   'Vai ficar um tempo ausente? Avise no 💬 chat-guilda. **7 dias offline sem aviso** = perde a tag 🪽 Legionário.'],
   ['📜 11. Termos do Discord',
    'Siga também os [Termos de Serviço](https://discord.com/terms) e as [Diretrizes da Comunidade](https://discord.com/guidelines) do Discord.']
+];
+
+// Regras de jogo da legião (segunda mensagem)
+const compromissos = [
+  ['🗡️ 12. Foco em PvP',
+   'A Fight Kings é uma legião focada em **PvP**: Abismo, Fenda, Arena e Guerra de Facções. ' +
+   'Também fazemos juntos todo o **PvE necessário** para evoluir: masmorras, raids e Invasão Dimensional.'],
+  ['📣 13. Sempre tem um líder no call',
+   'Em todo conteúdo da legião, **PvP ou PvE** (guerra, Fenda, raid, masmorra), sempre haverá um **líder puxando o call**. ' +
+   'Siga as ordens dele: nada de sair sozinho, puxar briga sem ordem ou fazer por conta própria.'],
+  ['🎧 14. Voz nas guerras e raids',
+   'Em guerra e raid, entre no canal de voz. Microfone só para informação importante, para não atrapalhar o call.'],
+  ['🏯 15. Presença nas guerras do Abismo',
+   'O **Cerco ao Artefato (segunda, quinta e sábado às 21h)** é prioridade. Esteja online e no canal **🏰 Guerra de Facções 1** até **20:50**. ' +
+   'Não vai poder? Avise antes no 💬 chat-guilda.'],
+  ['⏳ 16. Tempo de Abismo guardado',
+   'Guarde tempo de Abismo para os conteúdos PvP da legião. Não gaste tudo antes das guerras e das chamadas.'],
+  ['🤝 17. Ninguém fica para trás',
+   'Sempre que puder, ajude os membros mais fracos a evoluir: leve em masmorra, tire dúvidas de build e explique as mecânicas. ' +
+   'Quem é ajudado hoje ajuda amanhã.'],
+  ['📈 18. Evolução em dia',
+   'Faça as diárias e semanais (chaves da Invasão Dimensional e do Shugo) e mantenha build e equipamento atualizados.'],
+  ['🛡️ 19. Represente a legião',
+   'No mundo aberto você carrega o nome **Fight Kings**. Respeite as legiões aliadas e não provoque briga à toa.'],
+  ['👥 20. Recrutamento',
+   'Só o **👑 Comandante** e a **⚜️ Elite** convidam para a legião. O Legionário pode indicar amigos no 📝 recrutamento.']
 ];
 
 const client = new Client({
@@ -65,7 +91,13 @@ client.once('clientReady', async () => {
 
     const body = new EmbedBuilder()
       .setColor(RED)
+      .setTitle('📜 Conduta')
       .addFields(rules.map(([name, value]) => ({ name, value })));
+
+    const legion = new EmbedBuilder()
+      .setColor(RED)
+      .setTitle('⚔️ Compromissos da Legião')
+      .addFields(compromissos.map(([name, value]) => ({ name, value })));
 
     const penalties = new EmbedBuilder()
       .setColor(GOLD)
@@ -81,7 +113,9 @@ client.once('clientReady', async () => {
       .setFooter({ text: 'Fight Kings • Aion 2' })
       .setTimestamp();
 
-    await channel.send({ embeds: [header, body, penalties], files: [logo] });
+    // Duas mensagens: o Discord limita o total de texto por mensagem
+    await channel.send({ embeds: [header, body], files: [logo] });
+    await channel.send({ embeds: [legion, penalties] });
     console.log(`✅ Regras publicadas em #${channel.name}`);
   } catch (err) {
     console.error('Erro ao publicar regras:', err);
