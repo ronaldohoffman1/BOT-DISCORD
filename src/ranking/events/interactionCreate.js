@@ -5,6 +5,7 @@ const {
   ActionRowBuilder,
   PermissionFlagsBits,
   EmbedBuilder,
+  StringSelectMenuBuilder,
 } = require("discord.js");
 const db = require("../database/db");
 const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEmbed");
@@ -85,6 +86,47 @@ async function handleSlash(interaction, commands) {
 // ── Select menus ──────────────────────────────────────────────────────────────
 
 async function handleSelect(interaction, commands) {
+  if (interaction.customId === "select_encerrar_evento") {
+    if (!isPAdmin(interaction)) {
+      return interaction.reply({
+        content: "❌ Apenas a liderança pode encerrar eventos.",
+        ephemeral: true,
+      });
+    }
+
+    const eventId = parseInt(interaction.values[0]);
+    const event = db.getEventById(eventId);
+    if (!event || !event.is_open) {
+      return interaction.update({
+        content: "⚠️ Este evento já foi encerrado ou não foi encontrado.",
+        components: [],
+      });
+    }
+
+    db.closeEvent(eventId);
+    const attendance = db.getAttendance(eventId);
+    const closedEvent = db.getEventById(eventId);
+
+    if (closedEvent.message_id && closedEvent.channel_id) {
+      try {
+        const channel = await interaction.client.channels.fetch(closedEvent.channel_id);
+        const message = await channel.messages.fetch(closedEvent.message_id);
+        await message.edit({
+          embeds: [buildEventEmbed(closedEvent, attendance)],
+          components: buildEventComponents(eventId, false),
+        });
+      } catch (err) {
+        console.warn(`Não foi possível atualizar embed do evento encerrado ${eventId}:`, err.message);
+      }
+    }
+
+    return interaction.update({
+      content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.`,
+      components: [],
+      embeds: [],
+    });
+  }
+
   if (interaction.customId !== "evento_cat_select") return;
 
   const { pending } = require("../commands/evento-criar");
@@ -181,6 +223,112 @@ async function handleButton(interaction) {
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
+  if (interaction.customId === "btn_criar_evento") {
+    if (!isPAdmin(interaction)) {
+      return interaction.reply({
+        content: "❌ Apenas a liderança (Comandante, Elite, Nobre ou Admins) pode criar eventos.",
+        ephemeral: true,
+      });
+    }
+
+    const now = new Date();
+    // Horário de Brasília (UTC-3)
+    const brDate = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    const d = String(brDate.getUTCDate()).padStart(2, "0");
+    const m = String(brDate.getUTCMonth() + 1).padStart(2, "0");
+    const y = brDate.getUTCFullYear();
+    const todayStr = `${d}/${m}/${y}`;
+
+    const modal = new ModalBuilder()
+      .setCustomId("modal_criar_evento_rapido")
+      .setTitle("➕ Criar Novo Evento");
+
+    const inputNome = new TextInputBuilder()
+      .setCustomId("evento_nome")
+      .setLabel("Nome do Evento")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("Ex: Guerra do Abismo ou Raid Ludra")
+      .setRequired(true)
+      .setMaxLength(100);
+
+    const inputCategoria = new TextInputBuilder()
+      .setCustomId("evento_categoria")
+      .setLabel("Categoria")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("Ex: Guerra, Ludra, Treino, PvP")
+      .setValue("Guerra")
+      .setRequired(true)
+      .setMaxLength(50);
+
+    const inputData = new TextInputBuilder()
+      .setCustomId("evento_data")
+      .setLabel("Data (DD/MM/AAAA)")
+      .setStyle(TextInputStyle.Short)
+      .setValue(todayStr)
+      .setRequired(true)
+      .setMaxLength(10);
+
+    const inputHora = new TextInputBuilder()
+      .setCustomId("evento_hora")
+      .setLabel("Hora de Início (HH:MM)")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("Ex: 21:00")
+      .setRequired(true)
+      .setMaxLength(5);
+
+    const inputDesc = new TextInputBuilder()
+      .setCustomId("evento_desc")
+      .setLabel("Descrição / Observações (Opcional)")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Ex: Todos conectados no canal de voz 10 minutos antes.")
+      .setRequired(false)
+      .setMaxLength(500);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(inputNome),
+      new ActionRowBuilder().addComponents(inputCategoria),
+      new ActionRowBuilder().addComponents(inputData),
+      new ActionRowBuilder().addComponents(inputHora),
+      new ActionRowBuilder().addComponents(inputDesc)
+    );
+
+    return interaction.showModal(modal);
+  }
+
+  if (interaction.customId === "btn_encerrar_evento") {
+    if (!isPAdmin(interaction)) {
+      return interaction.reply({
+        content: "❌ Apenas a liderança (Comandante, Elite, Nobre ou Admins) pode encerrar eventos.",
+        ephemeral: true,
+      });
+    }
+
+    const openEvents = db.getOpenEvents();
+    if (!openEvents.length) {
+      return interaction.reply({
+        content: "📭 Não há nenhum evento aberto no momento para encerrar.",
+        ephemeral: true,
+      });
+    }
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId("select_encerrar_evento")
+      .setPlaceholder("Selecione qual evento você deseja encerrar...")
+      .addOptions(
+        openEvents.slice(0, 25).map(e => ({
+          label: `${e.name}`.slice(0, 100),
+          description: `ID ${e.id} • ${e.category || "Geral"} • ${e.start_at || e.created_at}`.slice(0, 100),
+          value: String(e.id)
+        }))
+      );
+
+    return interaction.reply({
+      content: "🔒 **Selecione abaixo o evento que deseja encerrar:**",
+      components: [new ActionRowBuilder().addComponents(select)],
+      ephemeral: true,
+    });
+  }
+
   const [action, eventIdStr] = interaction.customId.split(":");
   const eventId = parseInt(eventIdStr);
   if (isNaN(eventId)) return;
@@ -258,6 +406,61 @@ async function handleModal(interaction) {
     const { pending } = require("../commands/evento-criar");
     const category = interaction.fields.getTextInputValue("cat_input").trim();
     return finishEventCreation(interaction, category, pending);
+  }
+
+  // Modal de criação rápida de evento via botão
+  if (interaction.customId === "modal_criar_evento_rapido") {
+    if (!isPAdmin(interaction)) {
+      return interaction.reply({
+        content: "❌ Apenas a liderança pode criar eventos.",
+        ephemeral: true,
+      });
+    }
+
+    const name = interaction.fields.getTextInputValue("evento_nome").trim();
+    const category = interaction.fields.getTextInputValue("evento_categoria").trim() || "Guerra";
+    const dateStr = interaction.fields.getTextInputValue("evento_data").trim();
+    const hourStr = interaction.fields.getTextInputValue("evento_hora").trim();
+    const description = (interaction.fields.getTextInputValue("evento_desc") || "").trim();
+
+    const dateMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const hourMatch = hourStr.match(/^(\d{2}):(\d{2})$/);
+    if (!dateMatch || !hourMatch) {
+      return interaction.reply({
+        content: "❌ Data ou hora inválida. Use o formato **DD/MM/AAAA** (ex: 17/11/2026) e **HH:MM** (ex: 21:00).",
+        ephemeral: true,
+      });
+    }
+
+    const [, d, m, y] = dateMatch;
+    const [, hh, mm] = hourMatch;
+    const dt = new Date(`${y}-${m}-${d}T${hh}:${mm}:00`);
+    if (isNaN(dt.getTime())) {
+      return interaction.reply({ content: "❌ Data inválida.", ephemeral: true });
+    }
+
+    const startAt = `${y}-${m}-${d} ${hh}:${mm}`;
+
+    if (!db.getCategoryByName(category)) {
+      try {
+        db.createCategory(category, `Categoria criada para ${name}`, interaction.user.tag);
+      } catch {}
+    }
+
+    const result = db.createEvent(name, description, interaction.user.tag, category, startAt);
+    const eventId = result.lastInsertRowid;
+    const event = db.getEventById(eventId);
+
+    const embed = buildEventEmbed(event, []);
+    const components = buildEventComponents(eventId, true);
+
+    const msg = await interaction.channel.send({ embeds: [embed], components });
+    db.updateEventMessage(eventId, msg.id, interaction.channelId);
+
+    return interaction.reply({
+      content: `✅ **Evento criado com sucesso!**\nO card de presenças de **${name}** (ID #${eventId}) já foi aberto no canal com os botões de confirmação!`,
+      ephemeral: true,
+    });
   }
 
   const [action, eventIdStr] = interaction.customId.split(":");

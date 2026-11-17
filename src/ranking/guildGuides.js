@@ -62,12 +62,11 @@ function createPresencaGuideEmbed(guildName) {
           "• `/evento-listar` — Lista os eventos abertos ou encerrados."
       },
       {
-        name: "👑 Comandos para a Liderança (Oficiais & Admins)",
+        name: "👑 Ações Rápidas da Liderança (Botões com 1 Clique)",
         value:
-          "• `/evento-criar nome:<nome> data:<DD/MM/AAAA> hora:<HH:MM>` — Abre um evento e posta o painel de confirmação.\n" +
-          "• `/evento-fechar id:<id>` — Encerra o evento e congela a lista de presentes.\n" +
-          "• `/painel-admin evento_id:<id>` — Painel com botões rápidos para adicionar/remover membros em massa.\n" +
-          "• `/presenca-admin add|remover evento_id:<id> membro:@user` — Ajuste manual de presença."
+          "• Clique em **`[ ➕ Criar Evento ]`** abaixo para abrir um formulário direto na tela e lançar o evento sem precisar digitar comando!\n" +
+          "• Clique em **`[ 🔒 Encerrar Evento ]`** para selecionar e encerrar qualquer evento aberto na hora.\n" +
+          "• *(Ou se preferir, use os comandos `/evento-criar`, `/evento-fechar`, `/painel-admin`)*"
       }
     )
     .setFooter({ text: "Kokushibo • Sistema Automatizado de Presenças • Fight Kings" })
@@ -75,7 +74,7 @@ function createPresencaGuideEmbed(guildName) {
 }
 
 function createPresencaButtons() {
-  return new ActionRowBuilder().addComponents(
+  const rowMembers = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("btn_guia_historico")
       .setLabel("📊 Meu Histórico")
@@ -89,6 +88,19 @@ function createPresencaButtons() {
       .setLabel("📋 Eventos Abertos")
       .setStyle(ButtonStyle.Secondary)
   );
+
+  const rowAdmins = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("btn_criar_evento")
+      .setLabel("➕ Criar Evento")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("btn_encerrar_evento")
+      .setLabel("🔒 Encerrar Evento")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return [rowMembers, rowAdmins];
 }
 
 /**
@@ -189,7 +201,7 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
       const existing = msgs ? msgs.find(m => m.author.id === client.user.id && m.embeds.some(e => e.title?.includes("CONTROLE DE PRESENÇAS"))) : null;
 
       const embed = createPresencaGuideEmbed(guild.name);
-      const components = [createPresencaButtons()];
+      const components = createPresencaButtons();
 
       if (existing && !forceRefresh) {
         await existing.edit({ embeds: [embed], components });
