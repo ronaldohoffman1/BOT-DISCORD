@@ -10,8 +10,22 @@ async function refreshEventEmbed(client, eventId) {
     const channel = await client.channels.fetch(event.channel_id);
     const message = await channel.messages.fetch(event.message_id);
     const attendance = db.getAttendance(eventId);
+    if (channel.guild && attendance.length > 0) {
+      try {
+        const fetched = await channel.guild.members.fetch({
+          user: attendance.map(a => a.user_id)
+        });
+        for (const a of attendance) {
+          const m = fetched.get(a.user_id);
+          if (m && m.displayName !== a.username) {
+            db.checkIn(event.id, a.user_id, m.displayName);
+            a.username = m.displayName;
+          }
+        }
+      } catch {}
+    }
     await message.edit({
-      embeds: [buildEventEmbed(event, attendance)],
+      embeds: [buildEventEmbed(event, attendance, channel.guild)],
       components: buildEventComponents(eventId, !!event.is_open),
     });
   } catch (err) {
@@ -67,17 +81,20 @@ module.exports = {
       return interaction.reply({ content: `🔒 Evento **${event.name}** está encerrado.`, ephemeral: true });
     }
 
+    const member = await interaction.guild?.members?.fetch(target.id).catch(() => null);
+    const displayName = member?.displayName || target.displayName || target.username;
+
     if (sub === "add") {
       if (db.hasCheckedIn(eventId, target.id)) {
         return interaction.reply({
-          content: `⚠️ **${target.tag}** já está registrado em **${event.name}**.`,
+          content: `⚠️ **${displayName}** já está registrado em **${event.name}**.`,
           ephemeral: true,
         });
       }
-      db.checkIn(eventId, target.id, target.tag);
+      db.checkIn(eventId, target.id, displayName);
       await refreshEventEmbed(interaction.client, eventId);
       return interaction.reply({
-        content: `✅ **${target.tag}** adicionado ao evento **${event.name}**.`,
+        content: `✅ **${displayName}** adicionado ao evento **${event.name}**.`,
         ephemeral: true,
       });
     }
@@ -85,14 +102,14 @@ module.exports = {
     if (sub === "remover") {
       if (!db.hasCheckedIn(eventId, target.id)) {
         return interaction.reply({
-          content: `⚠️ **${target.tag}** não está registrado em **${event.name}**.`,
+          content: `⚠️ **${displayName}** não está registrado em **${event.name}**.`,
           ephemeral: true,
         });
       }
       db.checkOut(eventId, target.id);
       await refreshEventEmbed(interaction.client, eventId);
       return interaction.reply({
-        content: `✅ Presença de **${target.tag}** removida do evento **${event.name}**.`,
+        content: `✅ Presença de **${displayName}** removida do evento **${event.name}**.`,
         ephemeral: true,
       });
     }

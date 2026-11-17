@@ -49,6 +49,8 @@ module.exports = {
     }
 
     const target = targetUser ?? interaction.user;
+    const targetMember = await interaction.guild?.members?.fetch(target.id).catch(() => null);
+    const targetDisplayName = targetMember?.displayName || target.displayName || target.username;
     const stats = db.getUserStats(target.id, category);
 
     if (!stats) {
@@ -56,7 +58,7 @@ module.exports = {
       return interaction.reply({
         content: isSelf
           ? `📭 Você ainda não tem nenhuma presença registrada${scope}.`
-          : `📭 **${target.tag}** não tem nenhuma presença registrada${scope}.`,
+          : `📭 **${targetDisplayName}** não tem nenhuma presença registrada${scope}.`,
         ephemeral: true,
       });
     }
@@ -73,8 +75,8 @@ module.exports = {
         : stats.events || "*nenhum*";
 
     const title = category
-      ? `📊 ${stats.username} — ${category}`
-      : `📊 ${stats.username} — Histórico Geral`;
+      ? `📊 ${targetDisplayName} — ${category}`
+      : `📊 ${targetDisplayName} — Histórico Geral`;
 
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)

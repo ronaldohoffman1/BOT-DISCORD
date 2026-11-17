@@ -352,9 +352,14 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
+  // Trata Modais (Formulários do Ranking/Presença)
+  if (interaction.isModalSubmit()) {
+    return handleRankingInteraction(interaction);
+  }
+
   // Trata Menus Dropdown (StringSelectMenu)
   if (interaction.isStringSelectMenu()) {
-    if (interaction.customId === 'evento_cat_select') {
+    if (interaction.customId === 'evento_cat_select' || interaction.customId.startsWith('select_')) {
       return handleRankingInteraction(interaction);
     }
 
@@ -407,7 +412,7 @@ client.on('interactionCreate', async (interaction) => {
   // Trata Botões
   if (interaction.isButton()) {
     const [action] = interaction.customId.split(':');
-    if (['pa', 'pr', 'aa', 'ar'].includes(action)) {
+    if (['pa', 'pr', 'aa', 'ar'].includes(action) || interaction.customId.startsWith('btn_guia_') || interaction.customId.startsWith('btn_criar_') || interaction.customId.startsWith('btn_encerrar_') || interaction.customId.startsWith('btn_historico_')) {
       return handleRankingInteraction(interaction);
     }
 

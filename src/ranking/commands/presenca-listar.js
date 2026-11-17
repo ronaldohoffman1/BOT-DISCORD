@@ -30,9 +30,26 @@ module.exports = {
       });
     }
 
-    const lines = attendance.map(
-      (a, i) => `\`${String(i + 1).padStart(2, "0")}\` **${a.username}** — ${a.checked_in_at}`
-    );
+    if (interaction.guild && attendance.length > 0) {
+      try {
+        const fetched = await interaction.guild.members.fetch({
+          user: attendance.map(a => a.user_id)
+        });
+        for (const a of attendance) {
+          const m = fetched.get(a.user_id);
+          if (m && m.displayName !== a.username) {
+            db.checkIn(event.id, a.user_id, m.displayName);
+            a.username = m.displayName;
+          }
+        }
+      } catch {}
+    }
+
+    const lines = attendance.map((a, i) => {
+      const member = interaction.guild?.members?.cache?.get(a.user_id);
+      const name = member?.displayName || a.username;
+      return `\`${String(i + 1).padStart(2, "0")}\` **${name}** — ${a.checked_in_at}`;
+    });
 
     // Monta descrição respeitando o limite de 4096 chars
     let description = "";

@@ -14,7 +14,7 @@ function formatStartAt(startAt) {
   return m ? `${m[3]}/${m[2]}/${m[1]} às ${m[4]}` : startAt;
 }
 
-function buildEventEmbed(event, attendance) {
+function buildEventEmbed(event, attendance, guild = null) {
   const total = attendance.length;
   const isOpen = !!event.is_open;
 
@@ -22,7 +22,11 @@ function buildEventEmbed(event, attendance) {
   if (total > 0) {
     listText = attendance
       .slice(0, MAX_LIST)
-      .map((a, i) => `\`${String(i + 1).padStart(2, "0")}.\` ${a.username}`)
+      .map((a, i) => {
+        const member = guild?.members?.cache?.get(a.user_id);
+        const name = member?.displayName || a.username;
+        return `\`${String(i + 1).padStart(2, "0")}.\` ${name}`;
+      })
       .join("\n");
     if (total > MAX_LIST) listText += `\n*… e mais ${total - MAX_LIST} membro(s)*`;
   }

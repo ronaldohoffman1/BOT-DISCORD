@@ -40,7 +40,7 @@ module.exports = {
         const channel = await interaction.client.channels.fetch(event.channel_id);
         const message = await channel.messages.fetch(event.message_id);
         await message.edit({
-          embeds: [buildEventEmbed(closedEvent, attendance)],
+          embeds: [buildEventEmbed(closedEvent, attendance, channel.guild)],
           components: buildEventComponents(id, false),
         });
       } catch (err) {

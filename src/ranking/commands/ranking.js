@@ -49,9 +49,17 @@ module.exports = {
       return interaction.reply({ content: msg, ephemeral: true });
     }
 
+    if (interaction.guild && ranking.length > 0) {
+      await interaction.guild.members.fetch({
+        user: ranking.map(r => r.user_id)
+      }).catch(() => null);
+    }
+
     const lines = ranking.map((row, i) => {
       const medal = MEDALS[i] ?? `\`${String(i + 1).padStart(2, "0")}\``;
-      return `${medal} **${row.username}** — ${row.total} presença${row.total !== 1 ? "s" : ""}`;
+      const member = interaction.guild?.members?.cache?.get(row.user_id);
+      const name = member?.displayName || row.username;
+      return `${medal} **${name}** — ${row.total} presença${row.total !== 1 ? "s" : ""}`;
     });
 
     let description = "";

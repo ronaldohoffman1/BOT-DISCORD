@@ -24,14 +24,15 @@ module.exports = {
       });
     }
 
-    db.createCategory(name, description, interaction.user.tag);
+    const creatorName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    db.createCategory(name, description, creatorName);
 
     const embed = new EmbedBuilder()
       .setColor(0x57f287)
       .setTitle("📂 Categoria criada!")
       .addFields(
         { name: "Nome", value: name, inline: true },
-        { name: "Criada por", value: interaction.user.tag, inline: true }
+        { name: "Criada por", value: creatorName, inline: true }
       )
       .setDescription(description || "*Sem descrição*")
       .setFooter({ text: "Use /evento-criar para vincular um evento a esta categoria" })

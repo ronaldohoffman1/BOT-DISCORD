@@ -66,6 +66,7 @@ function createPresencaGuideEmbed(guildName) {
         value:
           "• Clique em **`[ ➕ Criar Evento ]`** abaixo para abrir um formulário direto na tela e lançar o evento sem precisar digitar comando!\n" +
           "• Clique em **`[ 🔒 Encerrar Evento ]`** para selecionar e encerrar qualquer evento aberto na hora.\n" +
+          "• Clique em **`[ 📜 Histórico de Eventos ]`** para consultar qualquer evento passado e ver a lista completa de presentes!\n" +
           "• *(Ou se preferir, use os comandos `/evento-criar`, `/evento-fechar`, `/painel-admin`)*"
       }
     )
@@ -97,7 +98,11 @@ function createPresencaButtons() {
     new ButtonBuilder()
       .setCustomId("btn_encerrar_evento")
       .setLabel("🔒 Encerrar Evento")
-      .setStyle(ButtonStyle.Danger)
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("btn_historico_eventos")
+      .setLabel("📜 Histórico de Eventos")
+      .setStyle(ButtonStyle.Primary)
   );
 
   return [rowMembers, rowAdmins];

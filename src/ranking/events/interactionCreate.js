@@ -14,8 +14,22 @@ const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEm
 
 async function refreshMessage(interaction, event) {
   const attendance = db.getAttendance(event.id);
+  if (interaction.guild && attendance.length > 0) {
+    try {
+      const fetched = await interaction.guild.members.fetch({
+        user: attendance.map(a => a.user_id)
+      });
+      for (const a of attendance) {
+        const m = fetched.get(a.user_id);
+        if (m && m.displayName !== a.username) {
+          db.checkIn(event.id, a.user_id, m.displayName);
+          a.username = m.displayName;
+        }
+      }
+    } catch {}
+  }
   await interaction.update({
-    embeds: [buildEventEmbed(event, attendance)],
+    embeds: [buildEventEmbed(event, attendance, interaction.guild)],
     components: buildEventComponents(event.id, !!event.is_open),
   });
 }
@@ -41,11 +55,12 @@ async function finishEventCreation(interaction, category, pending) {
   }
   pending.delete(interaction.user.id);
 
-  const result = db.createEvent(data.name, data.description, interaction.user.tag, category, data.startAt);
+  const creatorName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+  const result = db.createEvent(data.name, data.description, creatorName, category, data.startAt);
   const eventId = result.lastInsertRowid;
   const event = db.getEventById(eventId);
 
-  const embed = buildEventEmbed(event, []);
+  const embed = buildEventEmbed(event, [], interaction.guild);
   const components = buildEventComponents(eventId, true);
 
   // Edita a mensagem ephemeral de seleção com o embed público
@@ -105,7 +120,7 @@ async function handleSelect(interaction, commands) {
         const channel = await interaction.client.channels.fetch(closedEvent.channel_id);
         const message = await channel.messages.fetch(closedEvent.message_id);
         await message.edit({
-          embeds: [buildEventEmbed(closedEvent, attendance)],
+          embeds: [buildEventEmbed(closedEvent, attendance, channel.guild)],
           components: buildEventComponents(eventId, false),
         });
       } catch (err) {
@@ -117,6 +132,72 @@ async function handleSelect(interaction, commands) {
       content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.`,
       components: [],
       embeds: [],
+    });
+  }
+
+  // Consulta detalhada de evento com lista completa de presentes
+  if (interaction.customId === "select_ver_evento_detalhes") {
+    const eventId = parseInt(interaction.values[0]);
+    const event = db.getEventById(eventId);
+    if (!event) {
+      return interaction.update({
+        content: "❌ Evento não encontrado.",
+        components: [],
+        embeds: [],
+      });
+    }
+
+    const attendance = db.getAttendance(eventId);
+    const isOpen = !!event.is_open;
+
+    // Sincroniza apelidos atuais dos membros com o servidor
+    if (interaction.guild && attendance.length > 0) {
+      try {
+        const fetched = await interaction.guild.members.fetch({
+          user: attendance.map(a => a.user_id)
+        });
+        for (const a of attendance) {
+          const m = fetched.get(a.user_id);
+          if (m && m.displayName !== a.username) {
+            db.checkIn(event.id, a.user_id, m.displayName);
+            a.username = m.displayName;
+          }
+        }
+      } catch {}
+    }
+
+    let listText = "*Nenhum membro confirmou presença neste evento.*";
+    if (attendance.length > 0) {
+      listText = attendance
+        .map((a, i) => {
+          const member = interaction.guild?.members?.cache?.get(a.user_id);
+          const name = member?.displayName || a.username;
+          return `\`${String(i + 1).padStart(2, "0")}.\` **${name}** (<@${a.user_id}>) — *${a.checked_in_at}*`;
+        })
+        .join("\n");
+      if (listText.length > 3800) {
+        listText = listText.slice(0, 3800) + "\n*… lista muito longa, exibindo os primeiros.*";
+      }
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(isOpen ? 0x57f287 : 0xed4245)
+      .setTitle(`📋 Evento #${event.id} — ${event.name}`)
+      .setDescription(event.description ? `*${event.description}*\n` : "")
+      .addFields(
+        { name: "📂 Categoria", value: event.category || "Geral", inline: true },
+        { name: "🗓 Data / Início", value: event.start_at || event.created_at, inline: true },
+        { name: "🔒 Status", value: isOpen ? "🟢 **Aberto**" : `🔴 **Encerrado**${event.closed_at ? ` em ${event.closed_at}` : ""}`, inline: true },
+        { name: "👑 Criado por", value: event.created_by, inline: true },
+        { name: `👥 Membros Presentes (${attendance.length})`, value: listText }
+      )
+      .setFooter({ text: "Kokushibo • Registro Oficial de Presenças" })
+      .setTimestamp();
+
+    return interaction.update({
+      content: null,
+      embeds: [embed],
+      components: [],
     });
   }
 
@@ -164,9 +245,10 @@ async function handleButton(interaction) {
       ? breakdown.map((b) => `• **${b.category}**: ${b.total} presença${b.total !== 1 ? "s" : ""}`).join("\n")
       : null;
 
+    const memberName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
-      .setTitle(`📊 Histórico de Presenças — ${interaction.user.username}`)
+      .setTitle(`📊 Histórico de Presenças — ${memberName}`)
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields({ name: "Total de Presenças", value: `**${stats.total}**`, inline: true })
       .setTimestamp();
@@ -185,10 +267,19 @@ async function handleButton(interaction) {
         ephemeral: true,
       });
     }
+
+    if (interaction.guild && ranking.length > 0) {
+      await interaction.guild.members.fetch({
+        user: ranking.map(r => r.user_id)
+      }).catch(() => null);
+    }
+
     const MEDALS = ["🥇", "🥈", "🥉"];
     const lines = ranking.map((row, i) => {
       const medal = MEDALS[i] ?? `\`${String(i + 1).padStart(2, "0")}\``;
-      return `${medal} **${row.username}** — ${row.total} presença${row.total !== 1 ? "s" : ""}`;
+      const member = interaction.guild?.members?.cache?.get(row.user_id);
+      const name = member?.displayName || row.username;
+      return `${medal} **${name}** — ${row.total} presença${row.total !== 1 ? "s" : ""}`;
     });
     const embed = new EmbedBuilder()
       .setColor(0xfee75c)
@@ -322,6 +413,33 @@ async function handleButton(interaction) {
     });
   }
 
+  if (interaction.customId === "btn_historico_eventos") {
+    const allEvents = db.getAllEvents();
+    if (!allEvents.length) {
+      return interaction.reply({
+        content: "📭 Nenhum evento foi criado ainda no servidor.",
+        ephemeral: true,
+      });
+    }
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId("select_ver_evento_detalhes")
+      .setPlaceholder("Selecione um evento para ver todos os presentes...")
+      .addOptions(
+        allEvents.slice(0, 25).map(e => ({
+          label: `${e.name}`.slice(0, 100),
+          description: `ID ${e.id} • ${e.is_open ? '🟢 Aberto' : '🔒 Encerrado'} • ${e.category || 'Geral'} • ${e.start_at || e.created_at}`.slice(0, 100),
+          value: String(e.id)
+        }))
+      );
+
+    return interaction.reply({
+      content: "📜 **Histórico de Eventos do Servidor:**\nSelecione um evento abaixo para visualizar a lista completa de membros presentes:",
+      components: [new ActionRowBuilder().addComponents(select)],
+      ephemeral: true,
+    });
+  }
+
   const [action, eventIdStr] = interaction.customId.split(":");
   const eventId = parseInt(eventIdStr);
   if (isNaN(eventId)) return;
@@ -334,7 +452,8 @@ async function handleButton(interaction) {
     if (db.hasCheckedIn(eventId, interaction.user.id)) {
       return interaction.reply({ content: `⚠️ Você já confirmou presença em **${event.name}**.`, ephemeral: true });
     }
-    db.checkIn(eventId, interaction.user.id, interaction.user.tag);
+    const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    db.checkIn(eventId, interaction.user.id, displayName);
     await refreshMessage(interaction, db.getEventById(eventId));
     await interaction.followUp({ content: `✅ Presença confirmada em **${event.name}**!`, ephemeral: true });
     return;
@@ -434,17 +553,19 @@ async function handleModal(interaction) {
 
     const startAt = `${y}-${m}-${d} ${hh}:${mm}`;
 
+    const creatorName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+
     if (!db.getCategoryByName(category)) {
       try {
-        db.createCategory(category, `Categoria criada para ${name}`, interaction.user.tag);
+        db.createCategory(category, `Categoria criada para ${name}`, creatorName);
       } catch {}
     }
 
-    const result = db.createEvent(name, description, interaction.user.tag, category, startAt);
+    const result = db.createEvent(name, description, creatorName, category, startAt);
     const eventId = result.lastInsertRowid;
     const event = db.getEventById(eventId);
 
-    const embed = buildEventEmbed(event, []);
+    const embed = buildEventEmbed(event, [], interaction.guild);
     const components = buildEventComponents(eventId, true);
 
     const msg = await interaction.channel.send({ embeds: [embed], components });
@@ -478,11 +599,12 @@ async function handleModal(interaction) {
     for (const userId of ids) {
       try {
         const member = await interaction.guild.members.fetch(userId);
+        const memberName = member.displayName || member.user.displayName || member.user.username;
         if (db.hasCheckedIn(eventId, userId)) {
-          skipped.push(member.user.tag);
+          skipped.push(memberName);
         } else {
-          db.checkIn(eventId, userId, member.user.tag);
-          added.push(member.user.tag);
+          db.checkIn(eventId, userId, memberName);
+          added.push(memberName);
         }
       } catch {
         skipped.push(`ID \`${userId}\` (não encontrado)`);
@@ -514,8 +636,9 @@ async function handleModal(interaction) {
       } else {
         try {
           const member = await interaction.guild.members.fetch(userId);
+          const memberName = member.displayName || member.user.displayName || member.user.username;
           db.checkOut(eventId, userId);
-          removed.push(member.user.tag);
+          removed.push(memberName);
         } catch {
           db.checkOut(eventId, userId);
           removed.push(`\`${userId}\``);
@@ -540,8 +663,22 @@ async function updateEmbedFromDB(client, eventId) {
     const channel = await client.channels.fetch(event.channel_id);
     const message = await channel.messages.fetch(event.message_id);
     const attendance = db.getAttendance(eventId);
+    if (channel.guild && attendance.length > 0) {
+      try {
+        const fetched = await channel.guild.members.fetch({
+          user: attendance.map(a => a.user_id)
+        });
+        for (const a of attendance) {
+          const m = fetched.get(a.user_id);
+          if (m && m.displayName !== a.username) {
+            db.checkIn(event.id, a.user_id, m.displayName);
+            a.username = m.displayName;
+          }
+        }
+      } catch {}
+    }
     await message.edit({
-      embeds: [buildEventEmbed(event, attendance)],
+      embeds: [buildEventEmbed(event, attendance, channel.guild)],
       components: buildEventComponents(eventId, !!event.is_open),
     });
   } catch (err) {

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const db = require("../database/db");
+const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEmbed");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -26,10 +27,24 @@ module.exports = {
       });
     }
 
-    // Usa username atual — checkIn faz upsert para manter o nome sempre fresco
-    db.checkIn(eventId, interaction.user.id, interaction.user.tag);
+    // Usa o apelido dentro do servidor (displayName)
+    const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    db.checkIn(eventId, interaction.user.id, displayName);
 
-    const total = db.getAttendance(eventId).length;
+    const attendance = db.getAttendance(eventId);
+    const total = attendance.length;
+
+    // Se o evento tem painel de mensagem ativo, atualiza o embed ao vivo
+    if (event.message_id && event.channel_id) {
+      try {
+        const channel = await interaction.client.channels.fetch(event.channel_id);
+        const message = await channel.messages.fetch(event.message_id);
+        await message.edit({
+          embeds: [buildEventEmbed(event, attendance, channel.guild)],
+          components: buildEventComponents(eventId, !!event.is_open),
+        });
+      } catch {}
+    }
 
     const embed = new EmbedBuilder()
       .setColor(0x57f287)
@@ -38,7 +53,7 @@ module.exports = {
         { name: "Evento", value: event.name, inline: true },
         { name: "Total de presentes", value: `**${total}**`, inline: true }
       )
-      .setFooter({ text: `Use /remover-presenca para cancelar sua confirmação` })
+      .setFooter({ text: `Registrado como ${displayName} • Use /remover-presenca para cancelar` })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
