@@ -48,10 +48,16 @@ const guildCommands = [
     .setDescription('Mostra os comandos e instruções do bot da legião e sistema de presenças')
 ];
 
+const rankingSlashCommands = rankingCommandsArray.map(cmd => cmd.data);
+
 // Combina os comandos principais da guilda com os comandos do Nemon Ranking/Presenças
 const allCommands = [
   ...guildCommands,
-  ...rankingCommandsArray.map(cmd => cmd.data)
+  ...rankingSlashCommands
 ];
+
+allCommands.allCommands = allCommands;
+allCommands.guildCommands = guildCommands;
+allCommands.rankingSlashCommands = rankingSlashCommands;
 
 module.exports = allCommands;

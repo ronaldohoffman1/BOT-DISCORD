@@ -54,11 +54,15 @@ client.once('clientReady', async () => {
   // Avisos automáticos do Aion 2 (atualizações, Fenda, Festival Shugo)
   startAvisos(client);
 
+  const nemonToken = process.env.NEMON_DISCORD_TOKEN;
+  const isDualBot = !!(nemonToken && nemonToken !== process.env.DISCORD_TOKEN);
+  const botCommands = isDualBot ? slashCommands.guildCommands : slashCommands;
+
   // Registra automaticamente os comandos e garante cargos em cada servidor conectado
   for (const guild of client.guilds.cache.values()) {
     try {
       await ensureNobreRole(guild);
-      await guild.commands.set(slashCommands);
+      await guild.commands.set(botCommands);
       console.log(`⚡ Comandos slash registrados com sucesso em: ${guild.name} (${guild.id})`);
     } catch (err) {
       console.error(`Erro ao registrar comandos no servidor ${guild.name}:`, err.message);
@@ -66,8 +70,7 @@ client.once('clientReady', async () => {
   }
 
   // Se configurado token secundário separado para o Nemon, inicia o bot secundário em paralelo
-  const nemonToken = process.env.NEMON_DISCORD_TOKEN;
-  if (nemonToken && nemonToken !== process.env.DISCORD_TOKEN) {
+  if (isDualBot) {
     startStandaloneRankingBot(nemonToken);
   }
 });

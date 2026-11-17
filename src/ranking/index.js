@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { Client, GatewayIntentBits, Collection } = require("discord.js");
+const { Client, GatewayIntentBits, Collection, ActivityType } = require("discord.js");
 const interactionCreateEvent = require("./events/interactionCreate");
 const readyEvent = require("./events/ready");
 
@@ -58,14 +58,29 @@ async function ensureNobreRole(guild) {
 function startStandaloneRankingBot(token) {
   if (!token) return null;
 
-  console.log("🚀 Iniciando instância separada para o Bot Nemon Ranking...");
+  console.log("🚀 Iniciando instância dedicada para o Bot de Ranking (Kokushibo)...");
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
   client.commands = rankingCommands;
 
   client.once("clientReady", async () => {
-    console.log(`✅ Bot Nemon Ranking conectado como: ${client.user.tag}`);
+    console.log("====================================================");
+    console.log(`🤖 Bot de Ranking iniciado com sucesso como: ${client.user.tag}`);
+    console.log(`🌐 Conectado em ${client.guilds.cache.size} servidor(es).`);
+    console.log("====================================================");
+
+    client.user.setPresence({
+      activities: [{ name: '📋 Presenças & Rankings | /ranking', type: ActivityType.Custom }],
+      status: 'online'
+    });
+
     for (const guild of client.guilds.cache.values()) {
       await ensureNobreRole(guild);
+      try {
+        await guild.commands.set(rankingCommandsArray.map(cmd => cmd.data));
+        console.log(`⚡ Comandos de presenças/ranking registrados com sucesso em ${guild.name} para ${client.user.tag}`);
+      } catch (err) {
+        console.error(`Erro ao registrar comandos do ranking em ${guild.name}:`, err.message);
+      }
     }
   });
 
@@ -74,7 +89,7 @@ function startStandaloneRankingBot(token) {
   });
 
   client.login(token).catch((err) => {
-    console.error("❌ Falha ao autenticar Bot Nemon Ranking:", err.message);
+    console.error("❌ Falha ao autenticar Bot de Ranking:", err.message);
   });
 
   return client;
