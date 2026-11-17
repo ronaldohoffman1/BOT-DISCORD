@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
 const slashCommands = require('./commands');
+const { rankingCommandsArray } = require('./ranking');
 
 const commands = slashCommands.map(cmd => cmd.toJSON());
 
@@ -18,7 +19,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   try {
-    console.log(`🔄 Iniciando registro de ${commands.length} comandos de barra (slash commands)...`);
+    console.log(`🔄 Iniciando registro de ${commands.length} comandos de barra no bot principal...`);
 
     if (guildId) {
       const data = await rest.put(
@@ -32,6 +33,22 @@ const rest = new REST({ version: '10' }).setToken(token);
         { body: commands }
       );
       console.log(`✅ Sucesso! ${data.length} comandos registrados globalmente!`);
+    }
+
+    // Se configurado um bot separado para o Nemon com token próprio
+    const nemonToken = process.env.NEMON_DISCORD_TOKEN;
+    const nemonClientId = process.env.NEMON_CLIENT_ID || clientId;
+    if (nemonToken && nemonToken !== token) {
+      console.log(`🔄 Registrando comandos no bot dedicado Nemon Ranking...`);
+      const nemonRest = new REST({ version: '10' }).setToken(nemonToken);
+      const rankingJson = rankingCommandsArray.map(cmd => cmd.data.toJSON());
+      if (guildId) {
+        const nemonData = await nemonRest.put(
+          Routes.applicationGuildCommands(nemonClientId, guildId),
+          { body: rankingJson }
+        );
+        console.log(`✅ Sucesso! ${nemonData.length} comandos registrados no bot Nemon Ranking!`);
+      }
     }
   } catch (error) {
     console.error('❌ Erro ao registrar comandos:', error);

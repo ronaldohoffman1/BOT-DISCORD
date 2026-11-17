@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { rankingCommandsArray } = require('./ranking');
 
-const commands = [
+const guildCommands = [
   new SlashCommandBuilder()
     .setName('setup-cargos')
     .setDescription('Envia o painel de escolha de classe para o canal')
@@ -44,7 +45,13 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('ajuda')
-    .setDescription('Mostra os comandos e instruções do bot da legião')
+    .setDescription('Mostra os comandos e instruções do bot da legião e sistema de presenças')
 ];
 
-module.exports = commands;
+// Combina os comandos principais da guilda com os comandos do Nemon Ranking/Presenças
+const allCommands = [
+  ...guildCommands,
+  ...rankingCommandsArray.map(cmd => cmd.data)
+];
+
+module.exports = allCommands;

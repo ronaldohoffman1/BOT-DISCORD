@@ -29,6 +29,7 @@ Classes: ⚔️ Gladiador, 🛡️ Templário, 🗡️ Assassino, 🏹 Arqueiro,
 
 ## 🛠️ Comandos
 
+### Legião & Servidor
 | Comando | Permissão | Descrição |
 |---|---|---|
 | `/criar-cargos` | Administrador | Cria/atualiza classes e tags da legião |
@@ -36,7 +37,23 @@ Classes: ⚔️ Gladiador, 🛡️ Templário, 🗡️ Assassino, 🏹 Arqueiro,
 | `/setup-cargos [canal]` | Administrador | Envia o painel de escolha de classe |
 | `/config-boas-vindas` | Administrador | Canal de anúncio e DM para novos membros |
 | `/cargos` | Todos | Menu pessoal para escolher/trocar a classe |
-| `/ajuda` | Todos | Instruções do bot |
+| `/ajuda` | Todos | Instruções completas do bot |
+
+### Eventos, Presenças e Ranking (Nemon Integrado)
+| Comando | Permissão | Descrição |
+|---|---|---|
+| `/evento-criar` | Gerenciar Eventos / Nobre | Cria evento com data/hora e abre painel de presença |
+| `/evento-fechar` | Gerenciar Eventos / Nobre | Encerra o evento e congela as presenças |
+| `/categoria-criar` | Gerenciar Eventos / Nobre | Cria nova categoria para eventos (Raid, Treino, PvP, etc.) |
+| `/presenca-admin` | Gerenciar Eventos / Nobre | Marca ou remove presença de membro manualmente |
+| `/painel-admin` | Nobre / Admins | Painel com botões rápidos para adicionar/remover presenças em massa |
+| `/presenca-listar` | Gerenciar Eventos / Nobre | Lista todos os presentes de um evento |
+| `/presenca` | Todos | Confirma sua presença em um evento aberto |
+| `/remover-presenca` | Todos | Cancela sua confirmação em um evento aberto |
+| `/meu-historico` | Todos | Exibe seu histórico de presenças e categorias |
+| `/ranking` | Todos | Ranking de presenças (geral ou filtrado por categoria) |
+| `/evento-listar` | Todos | Lista eventos abertos ou encerrados |
+| `/categorias` | Todos | Lista todas as categorias e estatísticas |
 
 ## 📜 Scripts (rodar no PC, na pasta do bot)
 

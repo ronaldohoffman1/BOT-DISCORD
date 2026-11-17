@@ -24,6 +24,12 @@ const slashCommands = require('./commands');
 const { setupGameChannels } = require('./channelManager');
 const { startAvisos } = require('./avisos');
 const { findWelcomeChannel, welcomeMessage } = require('./welcome');
+const {
+  rankingCommands,
+  handleRankingInteraction,
+  ensureNobreRole,
+  startStandaloneRankingBot
+} = require('./ranking');
 
 const client = new Client({
   intents: [
@@ -48,14 +54,21 @@ client.once('clientReady', async () => {
   // Avisos automáticos do Aion 2 (atualizações, Fenda, Festival Shugo)
   startAvisos(client);
 
-  // Registra automaticamente os comandos em cada servidor conectado
+  // Registra automaticamente os comandos e garante cargos em cada servidor conectado
   for (const guild of client.guilds.cache.values()) {
     try {
+      await ensureNobreRole(guild);
       await guild.commands.set(slashCommands);
       console.log(`⚡ Comandos slash registrados com sucesso em: ${guild.name} (${guild.id})`);
     } catch (err) {
       console.error(`Erro ao registrar comandos no servidor ${guild.name}:`, err.message);
     }
+  }
+
+  // Se configurado token secundário separado para o Nemon, inicia o bot secundário em paralelo
+  const nemonToken = process.env.NEMON_DISCORD_TOKEN;
+  if (nemonToken && nemonToken !== process.env.DISCORD_TOKEN) {
+    startStandaloneRankingBot(nemonToken);
   }
 });
 
@@ -105,6 +118,19 @@ client.on('guildMemberAdd', async (member) => {
 
 // Evento: Interações (Slash Commands, Menus Dropdown, Botões)
 client.on('interactionCreate', async (interaction) => {
+  // Trata autocompletes (ex: filtro de categoria nos comandos de ranking)
+  if (interaction.isAutocomplete()) {
+    if (rankingCommands.has(interaction.commandName)) {
+      return handleRankingInteraction(interaction);
+    }
+    return;
+  }
+
+  // Trata Modais (ex: criação de nova categoria ou adicionar/remover membros em massa)
+  if (interaction.isModalSubmit()) {
+    return handleRankingInteraction(interaction);
+  }
+
   // Trata Comandos de Barra (/setup-cargos, /criar-cargos, etc)
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
@@ -286,29 +312,49 @@ client.on('interactionCreate', async (interaction) => {
       const rolesChannelId = getGuildSetting(interaction.guild.id, 'roles_channel_id');
       const embed = new EmbedBuilder()
         .setColor(config.embedColor)
-        .setTitle('📖 Central de Ajuda — Akaza BOT')
+        .setTitle('📖 Central de Ajuda — Fight Kings Bot')
         .setDescription(
-          `Este bot cuida das classes, das tags da legião e das salas do servidor **Fight Kings** (Aion 2).\n\n` +
+          `Este bot cuida das classes, das tags da legião e das salas do servidor **Fight Kings** (Aion 2), além do sistema completo de **eventos, presenças e rankings**!\n\n` +
           (rolesChannelId ? `📍 Escolha sua classe em: <#${rolesChannelId}>\n\n` : '') +
           `### 🪽 Tags da legião (dadas pela liderança)\n` +
           config.legionRoles.map(r => `• **${r.name}** — ${r.description}`).join('\n') + '\n\n' +
-          `### 👑 Comandos para Administradores:\n` +
+          `### 👑 Comandos para Administradores (Legião e Eventos):\n` +
           `• \`/criar-cargos\` : Cria/atualiza as classes e as tags da legião.\n` +
           `• \`/criar-salas\` : Organiza todas as categorias e salas do servidor.\n` +
           `• \`/setup-cargos [canal]\` : Envia o painel de escolha de classe.\n` +
-          `• \`/config-boas-vindas [canal] [enviar_dm]\` : Define onde anunciar novos membros e se envia DM.\n\n` +
+          `• \`/config-boas-vindas [canal] [enviar_dm]\` : Define onde anunciar novos membros e se envia DM.\n` +
+          `• \`/evento-criar\` : Cria um novo evento e abre painel de presença.\n` +
+          `• \`/evento-fechar\` : Encerra o evento e computa presenças.\n` +
+          `• \`/categoria-criar\` : Cria uma categoria de eventos (ex: Treino, Raid, PvP).\n` +
+          `• \`/presenca-admin\` : Adiciona ou remove presença manualmente.\n` +
+          `• \`/painel-admin\` : Painel rápido para gerenciar presenças em massa.\n\n` +
           `### 🎮 Comandos para Membros:\n` +
-          `• \`/cargos\` : Abre o menu para escolher ou trocar a sua classe.\n` +
+          `• \`/cargos\` : Abre o menu para escolher ou trocar a sua classe no Aion 2.\n` +
+          `• \`/presenca\` : Confirma sua presença em um evento aberto.\n` +
+          `• \`/remover-presenca\` : Remove sua presença de um evento aberto.\n` +
+          `• \`/meu-historico\` : Exibe seu histórico de presenças e categorias.\n` +
+          `• \`/ranking\` : Mostra o ranking de presenças (geral ou por categoria).\n` +
+          `• \`/evento-listar\` : Lista os eventos abertos ou encerrados.\n` +
+          `• \`/categorias\` : Mostra todas as categorias de eventos.\n` +
           `• \`/ajuda\` : Mostra esta mensagem.`
         )
-        .setFooter({ text: 'Fight Kings • Aion 2' });
+        .setFooter({ text: 'Fight Kings • Aion 2 & Presenças' });
 
       return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    // Comandos de Ranking/Presenças (Nemon)
+    if (rankingCommands.has(commandName)) {
+      return handleRankingInteraction(interaction);
     }
   }
 
   // Trata Menus Dropdown (StringSelectMenu)
   if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === 'evento_cat_select') {
+      return handleRankingInteraction(interaction);
+    }
+
     const customId = interaction.customId;
     const gameKey = Object.keys(config.games).find(k => config.games[k].customId === customId) || null;
 
@@ -357,6 +403,11 @@ client.on('interactionCreate', async (interaction) => {
 
   // Trata Botões
   if (interaction.isButton()) {
+    const [action] = interaction.customId.split(':');
+    if (['pa', 'pr', 'aa', 'ar'].includes(action)) {
+      return handleRankingInteraction(interaction);
+    }
+
     // Botão que abre a tela de seleção privada
     if (interaction.customId === 'btn_open_tag_selector') {
       const embed = createPanelEmbed(interaction.guild.name);
