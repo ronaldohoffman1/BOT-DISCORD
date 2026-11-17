@@ -4,6 +4,7 @@ const {
   TextInputStyle,
   ActionRowBuilder,
   PermissionFlagsBits,
+  EmbedBuilder,
 } = require("discord.js");
 const db = require("../database/db");
 const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEmbed");
@@ -114,6 +115,72 @@ async function handleSelect(interaction, commands) {
 // ── Botões ────────────────────────────────────────────────────────────────────
 
 async function handleButton(interaction) {
+  // Botões do Guia de Presenças
+  if (interaction.customId === "btn_guia_historico") {
+    const stats = db.getUserStats(interaction.user.id);
+    if (!stats) {
+      return interaction.reply({
+        content: "📭 Você ainda não tem nenhuma presença registrada nos eventos.",
+        ephemeral: true,
+      });
+    }
+    const breakdown = db.getUserCategoryBreakdown(interaction.user.id);
+    const breakdownText = breakdown.length
+      ? breakdown.map((b) => `• **${b.category}**: ${b.total} presença${b.total !== 1 ? "s" : ""}`).join("\n")
+      : null;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(`📊 Histórico de Presenças — ${interaction.user.username}`)
+      .setThumbnail(interaction.user.displayAvatarURL())
+      .addFields({ name: "Total de Presenças", value: `**${stats.total}**`, inline: true })
+      .setTimestamp();
+
+    if (breakdownText) {
+      embed.addFields({ name: "Por Categoria", value: breakdownText });
+    }
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
+  if (interaction.customId === "btn_guia_ranking") {
+    const ranking = db.getRanking(10);
+    if (!ranking.length) {
+      return interaction.reply({
+        content: "📭 Ainda não há presenças registradas nos eventos.",
+        ephemeral: true,
+      });
+    }
+    const MEDALS = ["🥇", "🥈", "🥉"];
+    const lines = ranking.map((row, i) => {
+      const medal = MEDALS[i] ?? `\`${String(i + 1).padStart(2, "0")}\``;
+      return `${medal} **${row.username}** — ${row.total} presença${row.total !== 1 ? "s" : ""}`;
+    });
+    const embed = new EmbedBuilder()
+      .setColor(0xfee75c)
+      .setTitle("🏆 Ranking Geral de Presenças — Top 10")
+      .setDescription(lines.join("\n"))
+      .setTimestamp();
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
+  if (interaction.customId === "btn_guia_eventos") {
+    const events = db.getOpenEvents();
+    if (!events.length) {
+      return interaction.reply({
+        content: "📭 Não há nenhum evento aberto para presenças no momento.",
+        ephemeral: true,
+      });
+    }
+    const lines = events.map(e => `🟢 \`ID ${e.id}\` **${e.name}** [${e.category || "Geral"}] — ${e.start_at || e.created_at}`);
+    const embed = new EmbedBuilder()
+      .setColor(0x57f287)
+      .setTitle("📋 Eventos Abertos no Momento")
+      .setDescription(lines.join("\n"))
+      .setFooter({ text: "Use /presenca evento_id:<id> ou clique no botão do evento" })
+      .setTimestamp();
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
   const [action, eventIdStr] = interaction.customId.split(":");
   const eventId = parseInt(eventIdStr);
   if (isNaN(eventId)) return;

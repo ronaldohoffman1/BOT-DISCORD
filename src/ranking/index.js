@@ -3,6 +3,7 @@ const path = require("path");
 const { Client, GatewayIntentBits, Collection, ActivityType } = require("discord.js");
 const interactionCreateEvent = require("./events/interactionCreate");
 const readyEvent = require("./events/ready");
+const { setupGuildRooms } = require("./guildGuides");
 
 const rankingCommands = new Collection();
 const rankingCommandsArray = [];
@@ -80,6 +81,14 @@ function startStandaloneRankingBot(token) {
         console.log(`⚡ Comandos de presenças/ranking registrados com sucesso em ${guild.name} para ${client.user.tag}`);
       } catch (err) {
         console.error(`Erro ao registrar comandos do ranking em ${guild.name}:`, err.message);
+      }
+
+      // Configura automaticamente as salas oficiais (presenças, advertências, hierarquia)
+      try {
+        const roomLogs = await setupGuildRooms(guild, client, false);
+        roomLogs.forEach(log => console.log(`📌 [Salas] ${log}`));
+      } catch (err) {
+        console.error(`Erro ao configurar salas no servidor ${guild.name}:`, err.message);
       }
     }
   });
