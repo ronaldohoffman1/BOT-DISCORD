@@ -90,7 +90,9 @@ module.exports = {
     }
 
     embed.addFields({ name: "Eventos participados", value: eventsList });
+    embed.setFooter({ text: "Kokushibo • Seu Histórico • Sumirá em 1m" });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

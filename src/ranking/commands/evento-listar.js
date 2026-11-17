@@ -43,8 +43,10 @@ module.exports = {
       .setColor(0x5865f2)
       .setTitle(showAll ? "📋 Todos os eventos" : "📋 Eventos abertos")
       .setDescription(description)
+      .setFooter({ text: "Kokushibo • Lista de Eventos • Sumirá em 1m" })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

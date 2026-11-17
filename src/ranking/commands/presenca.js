@@ -53,9 +53,10 @@ module.exports = {
         { name: "Evento", value: event.name, inline: true },
         { name: "Total de presentes", value: `**${total}**`, inline: true }
       )
-      .setFooter({ text: `Registrado como ${displayName} • Use /remover-presenca para cancelar` })
+      .setFooter({ text: `Registrado como ${displayName} • Sumirá em 1m` })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

@@ -76,8 +76,10 @@ module.exports = {
       .setColor(0xfee75c)
       .setTitle(title)
       .setDescription(description)
+      .setFooter({ text: "Kokushibo • Ranking de Presenças • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

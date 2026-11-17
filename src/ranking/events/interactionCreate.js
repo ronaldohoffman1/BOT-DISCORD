@@ -12,6 +12,33 @@ const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEm
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Apaga a resposta da interação após o tempo limite (padrão: 60 segundos)
+function scheduleAutoDelete(interaction, delayMs = 60000) {
+  setTimeout(async () => {
+    try {
+      await interaction.deleteReply();
+    } catch {
+      try {
+        await interaction.editReply({
+          content: "⏱️ *Esta informação expirou após 1 minuto.*",
+          embeds: [],
+          components: [],
+        });
+      } catch {}
+    }
+  }, delayMs);
+}
+
+// Apaga mensagem de followUp após o tempo limite (padrão: 60 segundos)
+function scheduleAutoDeleteMessage(message, delayMs = 60000) {
+  if (!message) return;
+  setTimeout(async () => {
+    try {
+      await message.delete();
+    } catch {}
+  }, delayMs);
+}
+
 async function refreshMessage(interaction, event) {
   const attendance = db.getAttendance(event.id);
   if (interaction.guild && attendance.length > 0) {
@@ -128,11 +155,13 @@ async function handleSelect(interaction, commands) {
       }
     }
 
-    return interaction.update({
-      content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.`,
+    await interaction.update({
+      content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.\n*(Esta mensagem sumirá em 1 minuto)*`,
       components: [],
       embeds: [],
     });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   // Consulta detalhada de evento com lista completa de presentes
@@ -140,11 +169,13 @@ async function handleSelect(interaction, commands) {
     const eventId = parseInt(interaction.values[0]);
     const event = db.getEventById(eventId);
     if (!event) {
-      return interaction.update({
+      await interaction.update({
         content: "❌ Evento não encontrado.",
         components: [],
         embeds: [],
       });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
 
     const attendance = db.getAttendance(eventId);
@@ -191,14 +222,16 @@ async function handleSelect(interaction, commands) {
         { name: "👑 Criado por", value: event.created_by, inline: true },
         { name: `👥 Membros Presentes (${attendance.length})`, value: listText }
       )
-      .setFooter({ text: "Kokushibo • Registro Oficial de Presenças" })
+      .setFooter({ text: "Kokushibo • Registro Oficial de Presenças • Sumirá em 1m" })
       .setTimestamp();
 
-    return interaction.update({
+    await interaction.update({
       content: null,
       embeds: [embed],
       components: [],
     });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   if (interaction.customId !== "evento_cat_select") return;
@@ -235,10 +268,12 @@ async function handleButton(interaction) {
   if (interaction.customId === "btn_guia_historico") {
     const stats = db.getUserStats(interaction.user.id);
     if (!stats) {
-      return interaction.reply({
+      await interaction.reply({
         content: "📭 Você ainda não tem nenhuma presença registrada nos eventos.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
     const breakdown = db.getUserCategoryBreakdown(interaction.user.id);
     const breakdownText = breakdown.length
@@ -251,21 +286,26 @@ async function handleButton(interaction) {
       .setTitle(`📊 Histórico de Presenças — ${memberName}`)
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields({ name: "Total de Presenças", value: `**${stats.total}**`, inline: true })
+      .setFooter({ text: "Kokushibo • Seu Histórico • Sumirá em 1m" })
       .setTimestamp();
 
     if (breakdownText) {
       embed.addFields({ name: "Por Categoria", value: breakdownText });
     }
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   if (interaction.customId === "btn_guia_ranking") {
     const ranking = db.getRanking(10);
     if (!ranking.length) {
-      return interaction.reply({
+      await interaction.reply({
         content: "📭 Ainda não há presenças registradas nos eventos.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
 
     if (interaction.guild && ranking.length > 0) {
@@ -285,34 +325,43 @@ async function handleButton(interaction) {
       .setColor(0xfee75c)
       .setTitle("🏆 Ranking Geral de Presenças — Top 10")
       .setDescription(lines.join("\n"))
+      .setFooter({ text: "Kokushibo • Ranking Geral • Sumirá em 1m" })
       .setTimestamp();
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   if (interaction.customId === "btn_guia_eventos") {
     const events = db.getOpenEvents();
     if (!events.length) {
-      return interaction.reply({
+      await interaction.reply({
         content: "📭 Não há nenhum evento aberto para presenças no momento.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
     const lines = events.map(e => `🟢 \`ID ${e.id}\` **${e.name}** [${e.category || "Geral"}] — ${e.start_at || e.created_at}`);
     const embed = new EmbedBuilder()
       .setColor(0x57f287)
       .setTitle("📋 Eventos Abertos no Momento")
       .setDescription(lines.join("\n"))
-      .setFooter({ text: "Use /presenca evento_id:<id> ou clique no botão do evento" })
+      .setFooter({ text: "Use /presenca evento_id:<id> ou clique no botão do evento • Sumirá em 1m" })
       .setTimestamp();
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   if (interaction.customId === "btn_criar_evento") {
     if (!isEventLeader(interaction)) {
-      return interaction.reply({
+      await interaction.reply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
     const now = new Date();
@@ -381,18 +430,22 @@ async function handleButton(interaction) {
 
   if (interaction.customId === "btn_encerrar_evento") {
     if (!isEventLeader(interaction)) {
-      return interaction.reply({
+      await interaction.reply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode encerrar eventos.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
     const openEvents = db.getOpenEvents();
     if (!openEvents.length) {
-      return interaction.reply({
+      await interaction.reply({
         content: "📭 Não há nenhum evento aberto no momento para encerrar.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
 
     const select = new StringSelectMenuBuilder()
@@ -406,20 +459,24 @@ async function handleButton(interaction) {
         }))
       );
 
-    return interaction.reply({
-      content: "🔒 **Selecione abaixo o evento que deseja encerrar:**",
+    await interaction.reply({
+      content: "🔒 **Selecione abaixo o evento que deseja encerrar:**\n*(Esta mensagem sumirá em 1 minuto)*",
       components: [new ActionRowBuilder().addComponents(select)],
       ephemeral: true,
     });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   if (interaction.customId === "btn_historico_eventos") {
     const allEvents = db.getAllEvents();
     if (!allEvents.length) {
-      return interaction.reply({
+      await interaction.reply({
         content: "📭 Nenhum evento foi criado ainda no servidor.",
         ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
 
     const select = new StringSelectMenuBuilder()
@@ -433,11 +490,13 @@ async function handleButton(interaction) {
         }))
       );
 
-    return interaction.reply({
-      content: "📜 **Histórico de Eventos do Servidor:**\nSelecione um evento abaixo para visualizar a lista completa de membros presentes:",
+    await interaction.reply({
+      content: "📜 **Histórico de Eventos do Servidor:**\nSelecione um evento abaixo para visualizar a lista completa de membros presentes:\n*(Esta mensagem sumirá em 1 minuto)*",
       components: [new ActionRowBuilder().addComponents(select)],
       ephemeral: true,
     });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   const [action, eventIdStr] = interaction.customId.split(":");
@@ -445,27 +504,41 @@ async function handleButton(interaction) {
   if (isNaN(eventId)) return;
 
   const event = db.getEventById(eventId);
-  if (!event) return interaction.reply({ content: "❌ Evento não encontrado.", ephemeral: true });
-  if (!event.is_open) return interaction.reply({ content: "🔒 Este evento já está encerrado.", ephemeral: true });
+  if (!event) {
+    await interaction.reply({ content: "❌ Evento não encontrado.", ephemeral: true });
+    scheduleAutoDelete(interaction, 30000);
+    return;
+  }
+  if (!event.is_open) {
+    await interaction.reply({ content: "🔒 Este evento já está encerrado.", ephemeral: true });
+    scheduleAutoDelete(interaction, 30000);
+    return;
+  }
 
   if (action === "pa") {
     if (db.hasCheckedIn(eventId, interaction.user.id)) {
-      return interaction.reply({ content: `⚠️ Você já confirmou presença em **${event.name}**.`, ephemeral: true });
+      await interaction.reply({ content: `⚠️ Você já confirmou presença em **${event.name}**.`, ephemeral: true });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
     const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
     db.checkIn(eventId, interaction.user.id, displayName);
     await refreshMessage(interaction, db.getEventById(eventId));
-    await interaction.followUp({ content: `✅ Presença confirmada em **${event.name}**!`, ephemeral: true });
+    const rep = await interaction.followUp({ content: `✅ Presença confirmada em **${event.name}**! *(Esta mensagem sumirá em 1m)*`, ephemeral: true });
+    scheduleAutoDeleteMessage(rep, 60000);
     return;
   }
 
   if (action === "pr") {
     if (!db.hasCheckedIn(eventId, interaction.user.id)) {
-      return interaction.reply({ content: `⚠️ Você não está registrado em **${event.name}**.`, ephemeral: true });
+      await interaction.reply({ content: `⚠️ Você não está registrado em **${event.name}**.`, ephemeral: true });
+      scheduleAutoDelete(interaction, 60000);
+      return;
     }
     db.checkOut(eventId, interaction.user.id);
     await refreshMessage(interaction, db.getEventById(eventId));
-    await interaction.followUp({ content: `✅ Presença removida de **${event.name}**.`, ephemeral: true });
+    const rep = await interaction.followUp({ content: `✅ Presença removida de **${event.name}**. *(Esta mensagem sumirá em 1m)*`, ephemeral: true });
+    scheduleAutoDeleteMessage(rep, 60000);
     return;
   }
 
@@ -571,10 +644,12 @@ async function handleModal(interaction) {
     const msg = await interaction.channel.send({ embeds: [embed], components });
     db.updateEventMessage(eventId, msg.id, interaction.channelId);
 
-    return interaction.reply({
-      content: `✅ **Evento criado com sucesso!**\nO card de presenças de **${name}** (ID #${eventId}) já foi aberto no canal com os botões de confirmação!`,
+    await interaction.reply({
+      content: `✅ **Evento criado com sucesso!**\nO card de presenças de **${name}** (ID #${eventId}) já foi aberto no canal com os botões de confirmação!\n*(Esta mensagem sumirá em 1 minuto)*`,
       ephemeral: true,
     });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   const [action, eventIdStr] = interaction.customId.split(":");
@@ -582,7 +657,9 @@ async function handleModal(interaction) {
   const event = db.getEventById(eventId);
 
   if (!event || !event.is_open) {
-    return interaction.reply({ content: "❌ Evento não encontrado ou encerrado.", ephemeral: true });
+    await interaction.reply({ content: "❌ Evento não encontrado ou encerrado.", ephemeral: true });
+    scheduleAutoDelete(interaction, 30000);
+    return;
   }
 
   // Adicionar membros em lote
@@ -590,7 +667,9 @@ async function handleModal(interaction) {
     const text = interaction.fields.getTextInputValue("users_input");
     const ids = parseUserIds(text);
     if (!ids.length) {
-      return interaction.reply({ content: "❌ Nenhum usuário válido encontrado.", ephemeral: true });
+      await interaction.reply({ content: "❌ Nenhum usuário válido encontrado.", ephemeral: true });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -616,7 +695,9 @@ async function handleModal(interaction) {
     let reply = "";
     if (added.length) reply += `✅ **Adicionados (${added.length}):** ${added.join(", ")}\n`;
     if (skipped.length) reply += `⚠️ **Já registrados / não encontrados:** ${skipped.join(", ")}`;
-    return interaction.editReply({ content: reply || "Nenhuma alteração." });
+    await interaction.editReply({ content: reply || "Nenhuma alteração." });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   // Remover membros em lote
@@ -624,7 +705,9 @@ async function handleModal(interaction) {
     const text = interaction.fields.getTextInputValue("user_input");
     const ids = parseUserIds(text);
     if (!ids.length) {
-      return interaction.reply({ content: "❌ Nenhum usuário válido encontrado.", ephemeral: true });
+      await interaction.reply({ content: "❌ Nenhum usuário válido encontrado.", ephemeral: true });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -651,7 +734,9 @@ async function handleModal(interaction) {
     let reply = "";
     if (removed.length) reply += `✅ **Removidos (${removed.length}):** ${removed.join(", ")}\n`;
     if (skipped.length) reply += `⚠️ **Não estavam registrados:** ${skipped.join(", ")}`;
-    return interaction.editReply({ content: reply || "Nenhuma alteração." });
+    await interaction.editReply({ content: reply || "Nenhuma alteração." });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 }
 

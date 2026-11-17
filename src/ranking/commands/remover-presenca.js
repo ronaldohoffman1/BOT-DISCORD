@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const db = require("../database/db");
+const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEmbed");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,23 +15,42 @@ module.exports = {
     const event = db.getEventById(eventId);
 
     if (!event) {
-      return interaction.reply({ content: `❌ Evento \`${eventId}\` não encontrado.`, ephemeral: true });
+      await interaction.reply({ content: `❌ Evento \`${eventId}\` não encontrado.`, ephemeral: true });
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
+      return;
     }
     if (!event.is_open) {
-      return interaction.reply({ content: `🔒 O evento **${event.name}** já está encerrado.`, ephemeral: true });
+      await interaction.reply({ content: `🔒 O evento **${event.name}** já está encerrado.`, ephemeral: true });
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
+      return;
     }
     if (!db.hasCheckedIn(eventId, interaction.user.id)) {
-      return interaction.reply({
+      await interaction.reply({
         content: `⚠️ Você não está registrado no evento **${event.name}**.`,
         ephemeral: true,
       });
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
+      return;
     }
 
     db.checkOut(eventId, interaction.user.id);
 
+    const attendance = db.getAttendance(eventId);
+    if (event.message_id && event.channel_id) {
+      try {
+        const channel = await interaction.client.channels.fetch(event.channel_id);
+        const message = await channel.messages.fetch(event.message_id);
+        await message.edit({
+          embeds: [buildEventEmbed(event, attendance, channel.guild)],
+          components: buildEventComponents(eventId, !!event.is_open),
+        });
+      } catch {}
+    }
+
     await interaction.reply({
-      content: `✅ Presença removida do evento **${event.name}**.`,
+      content: `✅ Presença removida do evento **${event.name}**. *(Esta mensagem sumirá em 1m)*`,
       ephemeral: true,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

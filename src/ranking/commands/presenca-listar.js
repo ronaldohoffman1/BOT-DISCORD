@@ -42,7 +42,7 @@ module.exports = {
             a.username = m.displayName;
           }
         }
-      } catch {}
+      } catch { }
     }
 
     const lines = attendance.map((a, i) => {
@@ -68,8 +68,10 @@ module.exports = {
       .setTitle(truncate(`📋 Presenças — ${event.name}`, 256))
       .setDescription(description)
       .addFields({ name: "Total", value: `**${attendance.length}**`, inline: true })
+      .setFooter({ text: "Kokushibo • Presenças do Evento • Sumirá em 1m" })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

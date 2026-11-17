@@ -30,9 +30,10 @@ module.exports = {
       .setColor(0x5865f2)
       .setTitle("📂 Categorias de Eventos")
       .setDescription(lines.join("\n\n"))
-      .setFooter({ text: "Use /ranking categoria:<nome> para ver o ranking de cada uma" })
+      .setFooter({ text: "Use /ranking categoria:<nome> • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };
