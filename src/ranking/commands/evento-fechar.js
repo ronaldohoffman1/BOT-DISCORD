@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const db = require("../database/db");
 const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEmbed");
+const { isEventLeader } = require("../guildGuides");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,6 +13,13 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
 
   async execute(interaction) {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode encerrar eventos.",
+        ephemeral: true,
+      });
+    }
+
     const id = interaction.options.getInteger("id");
     const event = db.getEventById(id);
 

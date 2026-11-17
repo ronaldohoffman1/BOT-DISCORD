@@ -263,7 +263,37 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
   return results;
 }
 
+/**
+ * Verifica se o membro tem cargo de liderança (Comandante, Sub Comandante, Oficial, Elite, Gods, Nobre ou Admin)
+ */
+function isEventLeader(interaction) {
+  const member = interaction.member;
+  if (!member) return false;
+
+  if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
+  if (member.permissions?.has(PermissionFlagsBits.ManageGuild)) return true;
+  if (member.permissions?.has(PermissionFlagsBits.ManageEvents)) return true;
+
+  const authorizedKeywords = [
+    "comandante",
+    "sub comandante",
+    "sub-comandante",
+    "oficial",
+    "elite",
+    "gods",
+    "nobre",
+    "p-admin",
+    "admin"
+  ];
+
+  return member.roles?.cache?.some((r) => {
+    const roleName = r.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return authorizedKeywords.some(keyword => roleName.includes(keyword));
+  }) || false;
+}
+
 module.exports = {
+  isEventLeader,
   setupGuildRooms,
   createPresencaGuideEmbed,
   createPresencaButtons,

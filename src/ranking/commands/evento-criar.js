@@ -8,6 +8,7 @@ const {
   TextInputStyle,
 } = require("discord.js");
 const db = require("../database/db");
+const { isEventLeader } = require("../guildGuides");
 
 // Armazena dados temporários enquanto o usuário escolhe a categoria
 // { userId -> { name, description, startAt } }
@@ -47,6 +48,13 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
 
   async execute(interaction) {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
+        ephemeral: true,
+      });
+    }
+
     const name = interaction.options.getString("nome").trim();
     const description = (interaction.options.getString("descricao") || "").trim();
     const dateStr = interaction.options.getString("data").trim();

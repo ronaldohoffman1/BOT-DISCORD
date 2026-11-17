@@ -1,27 +1,19 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const db = require("../database/db");
-
-const PADMIN_ROLE = "Nobre";
+const { isEventLeader } = require("../guildGuides");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("painel-admin")
-    .setDescription("Abre o painel de administração de um evento (apenas Nobre/Admins)")
+    .setDescription("Abre o painel de administração de um evento (Liderança e Oficiais)")
     .addIntegerOption((opt) =>
       opt.setName("evento_id").setDescription("ID do evento").setRequired(true)
     ),
 
   async execute(interaction) {
-    const isAuthorized =
-      interaction.member?.permissions?.has(PermissionFlagsBits.Administrator) ||
-      interaction.member?.permissions?.has(PermissionFlagsBits.ManageEvents) ||
-      interaction.member?.roles?.cache?.some((r) =>
-        r.name === PADMIN_ROLE || r.name === "P-Admin" || r.name === "Comandante" || r.name === "Elite"
-      );
-
-    if (!isAuthorized) {
+    if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: `❌ Você precisa do cargo **${PADMIN_ROLE}** ou permissão de administração para usar este comando.`,
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode usar este comando.",
         ephemeral: true,
       });
     }

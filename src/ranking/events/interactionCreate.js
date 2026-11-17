@@ -20,15 +20,8 @@ async function refreshMessage(interaction, event) {
   });
 }
 
-const PADMIN_ROLE = "Nobre";
-
-function isPAdmin(interaction) {
-  if (interaction.member?.permissions?.has(PermissionFlagsBits.Administrator)) return true;
-  if (interaction.member?.permissions?.has(PermissionFlagsBits.ManageEvents)) return true;
-  return !!interaction.member?.roles?.cache?.some((r) =>
-    r.name === PADMIN_ROLE || r.name === "P-Admin" || r.name === "Comandante" || r.name === "Elite"
-  );
-}
+const { isEventLeader } = require("../guildGuides");
+const isPAdmin = isEventLeader;
 
 function parseUserIds(text) {
   const mentionRegex = /<@!?(\d{17,20})>/g;
@@ -87,9 +80,9 @@ async function handleSlash(interaction, commands) {
 
 async function handleSelect(interaction, commands) {
   if (interaction.customId === "select_encerrar_evento") {
-    if (!isPAdmin(interaction)) {
+    if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ Apenas a liderança pode encerrar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode encerrar eventos.",
         ephemeral: true,
       });
     }
@@ -224,9 +217,9 @@ async function handleButton(interaction) {
   }
 
   if (interaction.customId === "btn_criar_evento") {
-    if (!isPAdmin(interaction)) {
+    if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ Apenas a liderança (Comandante, Elite, Nobre ou Admins) pode criar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
         ephemeral: true,
       });
     }
@@ -296,9 +289,9 @@ async function handleButton(interaction) {
   }
 
   if (interaction.customId === "btn_encerrar_evento") {
-    if (!isPAdmin(interaction)) {
+    if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ Apenas a liderança (Comandante, Elite, Nobre ou Admins) pode encerrar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode encerrar eventos.",
         ephemeral: true,
       });
     }
@@ -357,8 +350,8 @@ async function handleButton(interaction) {
     return;
   }
 
-  if (!isPAdmin(interaction)) {
-    return interaction.reply({ content: "❌ Você precisa do cargo **P-Admin** para usar esta função.", ephemeral: true });
+  if (!isEventLeader(interaction)) {
+    return interaction.reply({ content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode usar esta função.", ephemeral: true });
   }
 
   if (action === "aa") {
@@ -410,9 +403,9 @@ async function handleModal(interaction) {
 
   // Modal de criação rápida de evento via botão
   if (interaction.customId === "modal_criar_evento_rapido") {
-    if (!isPAdmin(interaction)) {
+    if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ Apenas a liderança pode criar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
         ephemeral: true,
       });
     }

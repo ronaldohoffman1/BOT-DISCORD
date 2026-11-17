@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const db = require("../database/db");
 const { buildEventEmbed, buildEventComponents } = require("../utils/attendanceEmbed");
+const { isEventLeader } = require("../guildGuides");
 
 async function refreshEventEmbed(client, eventId) {
   const event = db.getEventById(eventId);
@@ -47,6 +48,13 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
 
   async execute(interaction) {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode usar este comando.",
+        ephemeral: true,
+      });
+    }
+
     const sub = interaction.options.getSubcommand();
     const eventId = interaction.options.getInteger("evento_id");
     const target = interaction.options.getUser("membro");
