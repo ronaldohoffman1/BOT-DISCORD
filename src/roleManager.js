@@ -1,5 +1,6 @@
 const { PermissionFlagsBits } = require('discord.js');
 const config = require('./config');
+const { ensureWarningRoles } = require('./warningManager');
 
 /**
  * Busca o cargo pelo nome ou por um nome antigo (aliases). Com rename, corrige o nome.
@@ -103,6 +104,15 @@ async function ensureRolesExist(guild) {
     created.push(...sep.created);
   } catch (err) {
     errors.push({ name: 'separadores', error: err.message });
+  }
+
+  // 5. Tags de Advertências disciplinares (Advertência 1, 2 e 3)
+  try {
+    const warn = await ensureWarningRoles(guild);
+    created.push(...warn.created);
+    existing.push(...warn.existing);
+  } catch (err) {
+    errors.push({ name: 'tags de advertência', error: err.message });
   }
 
   return { created, existing, errors };

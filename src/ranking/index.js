@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits, Collection, ActivityType } = require("discord
 const interactionCreateEvent = require("./events/interactionCreate");
 const readyEvent = require("./events/ready");
 const { setupGuildRooms } = require("./guildGuides");
+const { ensureWarningRoles } = require("../warningManager");
 
 const rankingCommands = new Collection();
 const rankingCommandsArray = [];
@@ -76,6 +77,7 @@ function startStandaloneRankingBot(token) {
 
     for (const guild of client.guilds.cache.values()) {
       await ensureNobreRole(guild);
+      await ensureWarningRoles(guild);
       try {
         await guild.commands.set(rankingCommandsArray.map(cmd => cmd.data));
         console.log(`⚡ Comandos de presenças/ranking registrados com sucesso em ${guild.name} para ${client.user.tag}`);

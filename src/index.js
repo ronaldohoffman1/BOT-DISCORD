@@ -30,6 +30,7 @@ const {
   ensureNobreRole,
   startStandaloneRankingBot
 } = require('./ranking');
+const { ensureWarningRoles } = require('./warningManager');
 
 const client = new Client({
   intents: [
@@ -62,6 +63,7 @@ client.once('clientReady', async () => {
   for (const guild of client.guilds.cache.values()) {
     try {
       await ensureNobreRole(guild);
+      await ensureWarningRoles(guild);
       await guild.commands.set(botCommands);
       console.log(`⚡ Comandos slash registrados com sucesso em: ${guild.name} (${guild.id})`);
     } catch (err) {

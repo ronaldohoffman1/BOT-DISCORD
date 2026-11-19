@@ -5,6 +5,7 @@ const {
   ButtonStyle,
   PermissionFlagsBits
 } = require("discord.js");
+const { ensureWarningRoles } = require("../warningManager");
 
 const GOLD = 0xD4AF37;
 const CRIMSON = 0x990000;
@@ -142,6 +143,22 @@ function createAdvertenciasGuideEmbed() {
           "> Se você avisar previamente no **#chat-guilda** que não poderá estar presente ou não estiver logado, **nenhuma advertência será aplicada!** O respeito ao seu tempo vem primeiro."
       },
       {
+        name: "🏷️ Tags Oficiais de Advertência",
+        value:
+          "• `⚠️┃Advertência 1` — 1ª advertência do mês.\n" +
+          "• `⚠️┃Advertência 2` — 2ª advertência do mês (Atenção redobrada!).\n" +
+          "• `🚨┃Advertência 3` — 3ª advertência (Limite máximo! Punição/expulsão imediata)."
+      },
+      {
+        name: "👑 Comandos da Liderança",
+        value:
+          "• `/advertencia aplicar membro:@user motivo:...` — Aplica advertência e atualiza a tag.\n" +
+          "• `/advertencia remover membro:@user` — Remove 1 nível de advertência.\n" +
+          "• `/advertencia limpar membro:@user` — Remove todas as advertências do membro.\n" +
+          "• `/advertencia listar` — Lista todos os membros com advertências ativas.\n" +
+          "• `/advertencia resetar-mes` — Executa o resete mensal de todos os membros."
+      },
+      {
         name: "🤖 Como o Kokushibo Ajuda?",
         value:
           "O Kokushibo mantém o registro oficial de cada evento. Se você tiver dúvidas sobre presença registrada, " +
@@ -197,6 +214,14 @@ function createHierarquiaGuideEmbed() {
  */
 async function setupGuildRooms(guild, client, forceRefresh = false) {
   const results = [];
+
+  // Garante que as tags de advertência existam no servidor
+  try {
+    const warnRoles = await ensureWarningRoles(guild);
+    if (warnRoles.created.length > 0) {
+      results.push(`🏷️ Tags de Advertência criadas: ${warnRoles.created.join(", ")}`);
+    }
+  } catch {}
 
   // 1. Sala de Controle de Presença
   const chPresenca = findChannelByKeywords(guild, ["controle-de-presenca", "presenca"]);
