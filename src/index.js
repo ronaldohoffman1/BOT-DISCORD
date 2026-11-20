@@ -361,11 +361,9 @@ client.on('interactionCreate', async (interaction) => {
 
   // Trata Menus Dropdown (StringSelectMenu)
   if (interaction.isStringSelectMenu()) {
-    if (interaction.customId === 'evento_cat_select' || interaction.customId.startsWith('select_')) {
-      return handleRankingInteraction(interaction);
-    }
-
     const customId = interaction.customId;
+
+    // 1. Prioridade para seleção de tags/classes de jogos (Akaza BOT)
     const gameKey = Object.keys(config.games).find(k => config.games[k].customId === customId) || null;
 
     if (gameKey) {
@@ -393,7 +391,7 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       responseMsg += `\n✨ *Suas salas exclusivas foram liberadas no servidor!*\n` +
-                     `Clique em **"Concluir e Limpar Chat"** abaixo para fechar esta tela (ou ela fechará automaticamente em 5s).`;
+                     `Clique em **"Concluir e Limpar Chat"** abaixo para fechar esta tela quando terminar.`;
 
       const confirmEmbed = new EmbedBuilder()
         .setColor(0x2ECC71)
@@ -408,6 +406,11 @@ client.on('interactionCreate', async (interaction) => {
       });
 
       return;
+    }
+
+    // 2. Menus do sistema de ranking e presenças (Kokushibo)
+    if (customId === 'evento_cat_select' || customId === 'select_encerrar_evento' || customId === 'select_ver_evento_detalhes') {
+      return handleRankingInteraction(interaction);
     }
   }
 

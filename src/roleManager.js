@@ -126,13 +126,15 @@ async function handleRoleSelection(interaction, gameKey, selectedIds) {
   const game = config.games[gameKey];
   if (!game) return { error: 'Jogo não encontrado na configuração.' };
 
-  const member = interaction.member;
   const guild = interaction.guild;
-  await guild.roles.fetch();
+  const member = interaction.member || await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) return { error: '❌ Membro não encontrado no servidor.' };
+
+  await guild.roles.fetch().catch(() => {});
 
   // Verifica se o bot tem permissão de gerenciar cargos
-  const botMember = guild.members.me;
-  if (!botMember.permissions.has('ManageRoles')) {
+  const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
+  if (!botMember || !botMember.permissions.has('ManageRoles')) {
     return {
       error: '❌ O bot não possui permissão para gerenciar cargos (`Gerenciar Cargos` / `Manage Roles`). Por favor, dê essa permissão ao cargo do bot!'
     };
