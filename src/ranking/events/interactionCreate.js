@@ -234,6 +234,60 @@ async function handleSelect(interaction, commands) {
     return;
   }
 
+  // Remoção de membro pela liderança via dropdown do card do evento
+  if (interaction.customId.startsWith("select_remover_membro_evento:")) {
+    if (!isEventLeader(interaction)) {
+      await interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Elite**) pode remover membros da lista.",
+        ephemeral: true,
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const [, eventIdStr] = interaction.customId.split(":");
+    const eventId = parseInt(eventIdStr);
+    const event = db.getEventById(eventId);
+
+    if (!event || !event.is_open) {
+      await interaction.update({
+        content: "⚠️ Este evento já foi encerrado ou não foi encontrado.",
+        components: [],
+        embeds: [],
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const targetUserId = interaction.values[0];
+    if (!db.hasCheckedIn(eventId, targetUserId)) {
+      await interaction.update({
+        content: "⚠️ O membro selecionado não está mais registrado neste evento.",
+        components: [],
+        embeds: [],
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    let memberName = targetUserId;
+    try {
+      const member = await interaction.guild?.members?.fetch(targetUserId);
+      if (member) memberName = member.displayName || member.user.displayName || member.user.username;
+    } catch {}
+
+    db.checkOut(eventId, targetUserId);
+    await updateEmbedFromDB(interaction.client, eventId);
+
+    await interaction.update({
+      content: `✅ O membro **${memberName}** foi removido da lista de presenças do evento **${event.name}** pela liderança!\n*(Esta mensagem sumirá em 1 minuto)*`,
+      components: [],
+      embeds: [],
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
   if (interaction.customId !== "evento_cat_select") return;
 
   const { pending } = require("../commands/evento-criar");
@@ -542,6 +596,59 @@ async function handleButton(interaction) {
     return;
   }
 
+  // Liderança removendo membro da lista de presença
+  if (action === "lr") {
+    if (!isEventLeader(interaction)) {
+      await interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Elite**) pode remover membros da lista.",
+        ephemeral: true,
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const attendance = db.getAttendance(eventId);
+    if (!attendance.length) {
+      await interaction.reply({
+        content: `📭 Nenhum membro confirmou presença no evento **${event.name}** ainda.`,
+        ephemeral: true,
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    if (interaction.guild && attendance.length > 0) {
+      try {
+        await interaction.guild.members.fetch({
+          user: attendance.slice(0, 25).map(a => a.user_id)
+        });
+      } catch {}
+    }
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`select_remover_membro_evento:${eventId}`)
+      .setPlaceholder("Selecione o membro que deseja remover...")
+      .addOptions(
+        attendance.slice(0, 25).map((a, i) => {
+          const member = interaction.guild?.members?.cache?.get(a.user_id);
+          const name = member?.displayName || a.username;
+          return {
+            label: `${String(i + 1).padStart(2, "0")}. ${name}`.slice(0, 100),
+            description: `ID: ${a.user_id} • Registrado em: ${a.checked_in_at || "n/d"}`.slice(0, 100),
+            value: a.user_id,
+          };
+        })
+      );
+
+    await interaction.reply({
+      content: `🗑️ **Remover Membro — ${event.name}**\nSelecione abaixo quem você deseja remover da lista de presenças:${attendance.length > 25 ? "\n*(Exibindo os primeiros 25 membros)*" : ""}\n*(Esta mensagem sumirá em 1 minuto)*`,
+      components: [new ActionRowBuilder().addComponents(select)],
+      ephemeral: true,
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
   if (!isEventLeader(interaction)) {
     return interaction.reply({ content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode usar esta função.", ephemeral: true });
   }
@@ -775,6 +882,7 @@ async function updateEmbedFromDB(client, eventId) {
 
 module.exports = {
   name: "interactionCreate",
+  updateEmbedFromDB,
   async execute(interaction, commands) {
     try {
       if (interaction.isAutocomplete()) {

@@ -74,6 +74,20 @@ client.once('clientReady', async () => {
   // Se configurado token secundário separado para o Nemon, inicia o bot secundário em paralelo
   if (isDualBot) {
     startStandaloneRankingBot(nemonToken);
+  } else {
+    try {
+      const db = require('./ranking/database/db');
+      const { updateEmbedFromDB } = require('./ranking/events/interactionCreate');
+      const openEvents = db.getOpenEvents();
+      for (const ev of openEvents) {
+        if (ev.message_id && ev.channel_id) {
+          await updateEmbedFromDB(client, ev.id);
+          console.log(`🔄 Card do evento #${ev.id} (${ev.name}) sincronizado.`);
+        }
+      }
+    } catch (err) {
+      console.warn('Aviso ao sincronizar eventos abertos no bot principal:', err.message);
+    }
   }
 });
 
@@ -409,7 +423,12 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     // 2. Menus do sistema de ranking e presenças (Kokushibo)
-    if (customId === 'evento_cat_select' || customId === 'select_encerrar_evento' || customId === 'select_ver_evento_detalhes') {
+    if (
+      customId === 'evento_cat_select' ||
+      customId === 'select_encerrar_evento' ||
+      customId === 'select_ver_evento_detalhes' ||
+      customId.startsWith('select_remover_membro_evento')
+    ) {
       return handleRankingInteraction(interaction);
     }
   }
@@ -417,7 +436,7 @@ client.on('interactionCreate', async (interaction) => {
   // Trata Botões
   if (interaction.isButton()) {
     const [action] = interaction.customId.split(':');
-    if (['pa', 'pr', 'aa', 'ar'].includes(action) || interaction.customId.startsWith('btn_guia_') || interaction.customId.startsWith('btn_criar_') || interaction.customId.startsWith('btn_encerrar_') || interaction.customId.startsWith('btn_historico_')) {
+    if (['pa', 'pr', 'aa', 'ar', 'lr'].includes(action) || interaction.customId.startsWith('btn_guia_') || interaction.customId.startsWith('btn_criar_') || interaction.customId.startsWith('btn_encerrar_') || interaction.customId.startsWith('btn_historico_')) {
       return handleRankingInteraction(interaction);
     }
 

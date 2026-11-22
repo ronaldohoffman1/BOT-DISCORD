@@ -78,7 +78,11 @@ function buildEventComponents(eventId, isOpen) {
       new ButtonBuilder()
         .setCustomId(`pr:${eventId}`)
         .setLabel("❌ Remover Presença")
-        .setStyle(ButtonStyle.Danger)
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`lr:${eventId}`)
+        .setLabel("🗑️ Remover Membro")
+        .setStyle(ButtonStyle.Secondary)
     ),
   ];
 }

@@ -61,7 +61,13 @@ function startStandaloneRankingBot(token) {
   if (!token) return null;
 
   console.log("🚀 Iniciando instância dedicada para o Bot de Ranking (Kokushibo)...");
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildMessages,
+    ]
+  });
   client.commands = rankingCommands;
 
   client.once("clientReady", async () => {
@@ -92,6 +98,21 @@ function startStandaloneRankingBot(token) {
       } catch (err) {
         console.error(`Erro ao configurar salas no servidor ${guild.name}:`, err.message);
       }
+    }
+
+    // Sincroniza cards de todos os eventos abertos com os novos botões
+    try {
+      const db = require("./database/db");
+      const { updateEmbedFromDB } = require("./events/interactionCreate");
+      const openEvents = db.getOpenEvents();
+      for (const ev of openEvents) {
+        if (ev.message_id && ev.channel_id) {
+          await updateEmbedFromDB(client, ev.id);
+          console.log(`🔄 Card do evento #${ev.id} (${ev.name}) sincronizado.`);
+        }
+      }
+    } catch (err) {
+      console.warn("Aviso ao sincronizar eventos abertos:", err.message);
     }
   });
 
