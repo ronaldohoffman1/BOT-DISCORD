@@ -175,7 +175,7 @@ client.on('interactionCreate', async (interaction) => {
           const oldMsgs = await channel.messages.fetch({ limit: 10 });
           const botMsgs = oldMsgs.filter(m => m.author.id === client.user.id);
           for (const m of botMsgs.values()) {
-            await m.delete().catch(() => {});
+            await m.delete().catch(() => { });
           }
         } catch (cleanErr) {
           console.error('Aviso ao limpar mensagens antigas:', cleanErr.message);
@@ -210,23 +210,23 @@ client.on('interactionCreate', async (interaction) => {
         let desc = 'Aqui está o relatório de sincronização dos cargos da guilda:\n\n';
         if (result.created.length > 0) {
           desc += `✨ **Cargos Criados Automaticamente (${result.created.length}):**\n` +
-                  result.created.map(n => `• \`${n}\``).join(', ') + '\n\n';
+            result.created.map(n => `• \`${n}\``).join(', ') + '\n\n';
         } else {
           desc += 'ℹ️ Nenhum cargo novo precisou ser criado.\n\n';
         }
 
         if (result.existing.length > 0) {
           desc += `✅ **Cargos Já Existentes (${result.existing.length}):**\n` +
-                  result.existing.map(n => `\`${n}\``).join(', ') + '\n\n';
+            result.existing.map(n => `\`${n}\``).join(', ') + '\n\n';
         }
 
         if (result.errors.length > 0) {
           desc += `⚠️ **Erros ao criar alguns cargos:**\n` +
-                  result.errors.map(e => `• ${e.name}: ${e.error}`).join('\n') + '\n\n';
+            result.errors.map(e => `• ${e.name}: ${e.error}`).join('\n') + '\n\n';
         }
 
         desc += '⚠️ **Lembrete Importante de Hierarquia:**\n' +
-                'Vá em **Configurações do Servidor ➔ Cargos** e verifique se o cargo do seu **Bot** está **acima** de todos esses cargos de jogos, para que ele possa atribuí-los sem problemas!';
+          'Vá em **Configurações do Servidor ➔ Cargos** e verifique se o cargo do seu **Bot** está **acima** de todos esses cargos de jogos, para que ele possa atribuí-los sem problemas!';
 
         const embed = new EmbedBuilder()
           .setColor(0x2ECC71)
@@ -271,7 +271,7 @@ client.on('interactionCreate', async (interaction) => {
 
         if (result.kept.length > 0) {
           desc += `⚠️ **Salas antigas mantidas por terem mensagens** (apague manualmente se quiser):\n` +
-                  result.kept.map(c => `• \`${c}\``).join('\n') + '\n\n';
+            result.kept.map(c => `• \`${c}\``).join('\n') + '\n\n';
         }
         if (!result.hasForums) {
           desc += '💡 Ative a **Comunidade** do servidor para as salas `📚・builds/guias` virarem **Fórum** com etiquetas.\n';
@@ -311,8 +311,8 @@ client.on('interactionCreate', async (interaction) => {
 
       return interaction.reply({
         content: `⚙️ **Configurações de Boas-Vindas Atualizadas:**\n` +
-                 `• Canal de Boas-Vindas: ${currentWelcome ? `<#${currentWelcome}>` : '*Nenhum configurado*'}\n` +
-                 `• Mensagem Privada (DM) ao entrar: **${currentDm ? 'Ativada ✅' : 'Desativada ❌'}**`,
+          `• Canal de Boas-Vindas: ${currentWelcome ? `<#${currentWelcome}>` : '*Nenhum configurado*'}\n` +
+          `• Mensagem Privada (DM) ao entrar: **${currentDm ? 'Ativada ✅' : 'Desativada ❌'}**`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -407,7 +407,7 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       responseMsg += `\n✨ *Suas salas exclusivas foram liberadas no servidor!*\n` +
-                     `Clique em **"Concluir e Limpar Chat"** abaixo para fechar esta tela quando terminar.`;
+        `Clique em **"Concluir e Limpar Chat"** abaixo para fechar esta tela quando terminar.`;
 
       const confirmEmbed = new EmbedBuilder()
         .setColor(0x2ECC71)

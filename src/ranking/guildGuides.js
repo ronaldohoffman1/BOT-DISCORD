@@ -51,6 +51,7 @@ function createPresencaGuideEmbed(guildName) {
           "   ↳ Clique em **`[ ✅ Confirmar Presença ]`** para registrar seu nome.\n" +
           "   ↳ Clique em **`[ ❌ Remover Presença ]`** caso precise cancelar antes do fechamento.\n" +
           "   ↳ Líderes (**Comandante, Sub Comandante e Oficial de Elite**) têm o botão **`[ 🗑️ Remover Membro ]`** para remover alguém da lista.\n" +
+          "   ↳ Líderes (**Comandante, Sub Comandante e Oficial de Elite**) têm o botão **`[ 🗑️ Remover Membro ]`** para remover alguém da lista.\n" +
           "2. **Por Comando de Barra**:\n" +
           "   ↳ `/presenca evento_id:<id>` — Confirma sua presença.\n" +
           "   ↳ `/remover-presenca evento_id:<id>` — Remove sua presença."
@@ -222,13 +223,13 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
     if (warnRoles.created.length > 0) {
       results.push(`🏷️ Tags de Advertência criadas: ${warnRoles.created.join(", ")}`);
     }
-  } catch {}
+  } catch { }
 
   // 1. Sala de Controle de Presença
   const chPresenca = findChannelByKeywords(guild, ["controle-de-presenca", "presenca"]);
   if (chPresenca) {
     try {
-      const msgs = await chPresenca.messages.fetch({ limit: 20 }).catch(() => null);
+      const msgs = await chPresenca.messages.fetch({ limit: 50 }).catch(() => null);
       const existing = msgs ? msgs.find(m => m.author.id === client.user.id && m.embeds.some(e => e.title?.includes("CONTROLE DE PRESENÇAS"))) : null;
 
       const embed = createPresencaGuideEmbed(guild.name);
@@ -238,9 +239,38 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
         await existing.edit({ embeds: [embed], components });
         results.push(`✅ Guia atualizado em ${chPresenca.name}`);
       } else {
-        if (existing && forceRefresh) await existing.delete().catch(() => {});
+        if (existing && forceRefresh) await existing.delete().catch(() => { });
         await chPresenca.send({ embeds: [embed], components });
         results.push(`✨ Guia enviado em ${chPresenca.name}`);
+      }
+
+      // Atualiza automaticamente todos os cards de eventos abertos que já estavam postados no canal
+      if (msgs) {
+        const { buildEventComponents } = require("./utils/attendanceEmbed");
+        const db = require("./database/db");
+        for (const msg of msgs.values()) {
+          if (msg.author.id !== client.user.id) continue;
+          const firstRow = msg.components?.[0];
+          if (!firstRow) continue;
+          const paButton = firstRow.components?.find(b => b.customId?.startsWith("pa:"));
+          if (paButton) {
+            const eventId = parseInt(paButton.customId.split(":")[1]);
+            const hasLr = firstRow.components?.some(b => b.customId?.startsWith("lr:"));
+            if (!hasLr && !paButton.disabled) {
+              try {
+                await msg.edit({
+                  components: buildEventComponents(eventId, true)
+                });
+                results.push(`🔄 Botão [Remover Membro] adicionado ao card #${eventId} em ${chPresenca.name}`);
+                try {
+                  db.updateEventMessage(eventId, msg.id, chPresenca.id);
+                } catch {}
+              } catch (e) {
+                results.push(`⚠️ Falha ao atualizar card #${eventId}: ${e.message}`);
+              }
+            }
+          }
+        }
       }
     } catch (err) {
       results.push(`⚠️ Erro em ${chPresenca.name}: ${err.message}`);
@@ -260,7 +290,7 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
         await existing.edit({ embeds: [embed] });
         results.push(`✅ Guia atualizado em ${chAdvertencias.name}`);
       } else {
-        if (existing && forceRefresh) await existing.delete().catch(() => {});
+        if (existing && forceRefresh) await existing.delete().catch(() => { });
         await chAdvertencias.send({ embeds: [embed] });
         results.push(`✨ Guia enviado em ${chAdvertencias.name}`);
       }
@@ -282,7 +312,7 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
         await existing.edit({ embeds: [embed] });
         results.push(`✅ Guia atualizado em ${chHierarquia.name}`);
       } else {
-        if (existing && forceRefresh) await existing.delete().catch(() => {});
+        if (existing && forceRefresh) await existing.delete().catch(() => { });
         await chHierarquia.send({ embeds: [embed] });
         results.push(`✨ Guia enviado em ${chHierarquia.name}`);
       }
