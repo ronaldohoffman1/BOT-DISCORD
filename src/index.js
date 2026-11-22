@@ -15,6 +15,7 @@ const config = require('./config');
 const { createGateEmbed, createGateComponents, createPanelEmbed, createPanelComponents } = require('./panel');
 const {
   ensureRolesExist,
+  ensureLegionRoles,
   handleRoleSelection,
   clearAllGameRoles,
   getMemberGameRoles
@@ -64,6 +65,7 @@ client.once('clientReady', async () => {
     try {
       await ensureNobreRole(guild);
       await ensureWarningRoles(guild);
+      await ensureLegionRoles(guild);
       await guild.commands.set(botCommands);
       console.log(`⚡ Comandos slash registrados com sucesso em: ${guild.name} (${guild.id})`);
     } catch (err) {

@@ -15,7 +15,7 @@ const guildCommands = [
 
   new SlashCommandBuilder()
     .setName('criar-cargos')
-    .setDescription('Cria/atualiza as classes e as tags da legião (Comandante, Elite, Legionário)')
+    .setDescription('Cria/atualiza as classes e as tags da legião (Comandante, Oficial de Elite, Legionário)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()

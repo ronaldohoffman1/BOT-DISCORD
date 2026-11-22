@@ -27,7 +27,7 @@ const rules = [
   ['🤐 8. O que é da legião fica na legião',
    'Estratégias, horários de guerra e conversas internas não devem ser compartilhados com outras legiões.'],
   ['👑 9. Respeite a liderança',
-   'As decisões do **👑 Comandante**, da **⚜️ Elite** e da administração devem ser respeitadas. Discordou? Converse em particular com um líder.'],
+   'As decisões do **👑 Comandante**, do **⚜️ Oficial de Elite** e da administração devem ser respeitadas. Discordou? Converse em particular com um líder.'],
   ['📅 10. Atividade',
    'Vai ficar um tempo ausente? Avise no 💬 chat-guilda. **7 dias offline sem aviso** = perde a tag 🪽 Legionário.'],
   ['📜 11. Termos do Discord',
@@ -57,7 +57,7 @@ const compromissos = [
   ['🛡️ 19. Represente a legião',
    'No mundo aberto você carrega o nome **Fight Kings**. Respeite as legiões aliadas e não provoque briga à toa.'],
   ['👥 20. Recrutamento',
-   'Só o **👑 Comandante** e a **⚜️ Elite** convidam para a legião. O Legionário pode indicar amigos no 📝 recrutamento.']
+   'Só o **👑 Comandante** e o **⚜️ Oficial de Elite** convidam para a legião. O Legionário pode indicar amigos no 📝 recrutamento.']
 ];
 
 const client = new Client({

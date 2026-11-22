@@ -6,10 +6,24 @@ const { ensureWarningRoles } = require('./warningManager');
  * Busca o cargo pelo nome ou por um nome antigo (aliases). Com rename, corrige o nome.
  */
 async function findConfigRole(guild, def, { rename = false } = {}) {
-  const names = [def.name, ...(def.aliases || [])].map(n => n.toLowerCase());
+  const normalize = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const strip = (s) => normalize(s).replace(/[^a-z0-9]/g, "");
+
+  const names = [def.name, ...(def.aliases || [])];
+  const strippedTargets = names.map(strip);
+
   const role = guild.roles.cache.find(r => r.name.toLowerCase() === def.name.toLowerCase()) ||
-    guild.roles.cache.find(r => names.includes(r.name.toLowerCase()));
-  if (role && rename && role.name !== def.name) await role.setName(def.name, 'Nome atualizado');
+    guild.roles.cache.find(r => names.some(n => n.toLowerCase() === r.name.toLowerCase())) ||
+    guild.roles.cache.find(r => strippedTargets.includes(strip(r.name)));
+
+  if (role && rename && role.name !== def.name) {
+    try {
+      await role.setName(def.name, 'Nome atualizado');
+      console.log(`🏷️ Cargo atualizado no Discord: "${role.name}" ➔ "${def.name}"`);
+    } catch (err) {
+      console.warn(`Não foi possível renomear cargo "${role.name}":`, err.message);
+    }
+  }
   return role || null;
 }
 

@@ -50,7 +50,7 @@ function createPresencaGuideEmbed(guildName) {
           "1. **Card Interativo**: Quando a liderança criar um evento, um card aparecerá aqui nesta sala com os botões:\n" +
           "   ↳ Clique em **`[ ✅ Confirmar Presença ]`** para registrar seu nome.\n" +
           "   ↳ Clique em **`[ ❌ Remover Presença ]`** caso precise cancelar antes do fechamento.\n" +
-          "   ↳ Líderes (**Comandante, Sub Comandante e Elite**) têm o botão **`[ 🗑️ Remover Membro ]`** para remover alguém da lista.\n" +
+          "   ↳ Líderes (**Comandante, Sub Comandante e Oficial de Elite**) têm o botão **`[ 🗑️ Remover Membro ]`** para remover alguém da lista.\n" +
           "2. **Por Comando de Barra**:\n" +
           "   ↳ `/presenca evento_id:<id>` — Confirma sua presença.\n" +
           "   ↳ `/remover-presenca evento_id:<id>` — Remove sua presença."
@@ -186,7 +186,7 @@ function createHierarquiaGuideEmbed() {
         name: "👑 Estrutura de Cargos da Legião",
         value:
           "• `👑┃Comandante` — Líder geral da legião e responsável pelas diretrizes estratégicas.\n" +
-          "• `⚜️┃Sub Comandante / Elite` — Oficiais responsáveis pela condução de raids, guerras e gestão interna.\n" +
+          "• `⚜️┃Sub Comandante / Oficial de Elite` — Oficiais responsáveis pela condução de raids, guerras e gestão interna.\n" +
           "• `💠┃Nobre` — Cargo administrativo de gestão de eventos e presenças via Kokushibo.\n" +
           "• `🪽┃Legionário` — Membros efetivos que lutam e representam a Fight Kings no Aion 2."
       },

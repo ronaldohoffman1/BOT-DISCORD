@@ -50,7 +50,7 @@ module.exports = {
   async execute(interaction) {
     if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode criar eventos.",
         ephemeral: true,
       });
     }

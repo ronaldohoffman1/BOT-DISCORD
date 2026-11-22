@@ -10,7 +10,7 @@ const { getGuildSetting } = require('../src/storage');
 // Deixa o servidor igual ao src/config.js. Pode rodar de novo quantas vezes quiser:
 //   node scripts/reorganizar-servidor.js
 // 1. Apaga os cargos dos jogos que saíram do servidor (Dota 2, Conan, Valorant)
-// 2. Cria/atualiza classes e cargos da legião (Comandante, Elite, Legionário, Amigos)
+// 2. Cria/atualiza classes e cargos da legião (Comandante, Oficial de Elite, Legionário, Amigos)
 // 3. Organiza categorias e salas
 // 4. Coloca o logo como ícone do servidor
 // 5. Envia de novo o painel de escolha de classe

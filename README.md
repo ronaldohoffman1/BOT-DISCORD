@@ -10,7 +10,7 @@ Bot do servidor da legião **Fight Kings** no Aion 2: escolha de classe, tags da
 |---|---|---|
 | `👑┃Gods` | Administração do servidor | Manual (não é mexido pelo bot) |
 | `👑┃Comandante` | Dono do clã | Manual, pela liderança |
-| `⚜️┃Elite` | Abaixo do Comandante | Manual, pela liderança |
+| `⚜️┃Oficial de Elite` | Abaixo do Comandante | Manual, pela liderança |
 | `🪽┃Legionário` | Membros da guilda | Manual, pela liderança |
 | `🎮┃Aion 2` + classe | Quem escolheu a classe no painel | Automático (painel em 🎭・escolha-de-classe) |
 

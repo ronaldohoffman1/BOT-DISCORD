@@ -57,7 +57,7 @@ module.exports = {
   async execute(interaction) {
     if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode gerenciar advertências.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode gerenciar advertências.",
         ephemeral: true,
       });
     }

@@ -32,8 +32,10 @@ module.exports = {
       permissions: ["KickMembers", "ManageMessages", "MuteMembers", "DeafenMembers", "MoveMembers", "ManageNicknames", "MentionEveryone", "ModerateMembers"]
     },
     {
-      name: "⚜️┃Elite", color: "#C0392B",
-      description: "Braço direito do Comandante",
+      name: "⚜️┃Oficial de Elite",
+      aliases: ["⚜️┃Elite", "Elite", "Oficial", "⚜️┃Oficial", "Oficial de Elite", "⚜️┃Oficial de elite"],
+      color: "#C0392B",
+      description: "Braço direito do Comandante / Oficiais da Legião",
       permissions: ["ManageMessages", "MuteMembers", "MoveMembers", "ModerateMembers"]
     },
     {

@@ -124,7 +124,7 @@ async function handleSelect(interaction, commands) {
   if (interaction.customId === "select_encerrar_evento") {
     if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode encerrar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode encerrar eventos.",
         ephemeral: true,
       });
     }
@@ -238,7 +238,7 @@ async function handleSelect(interaction, commands) {
   if (interaction.customId.startsWith("select_remover_membro_evento:")) {
     if (!isEventLeader(interaction)) {
       await interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Elite**) pode remover membros da lista.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
         ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
@@ -411,7 +411,7 @@ async function handleButton(interaction) {
   if (interaction.customId === "btn_criar_evento") {
     if (!isEventLeader(interaction)) {
       await interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode criar eventos.",
         ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
@@ -485,7 +485,7 @@ async function handleButton(interaction) {
   if (interaction.customId === "btn_encerrar_evento") {
     if (!isEventLeader(interaction)) {
       await interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode encerrar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode encerrar eventos.",
         ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
@@ -600,7 +600,7 @@ async function handleButton(interaction) {
   if (action === "lr") {
     if (!isEventLeader(interaction)) {
       await interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Elite**) pode remover membros da lista.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
         ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
@@ -650,7 +650,7 @@ async function handleButton(interaction) {
   }
 
   if (!isEventLeader(interaction)) {
-    return interaction.reply({ content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode usar esta função.", ephemeral: true });
+    return interaction.reply({ content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode usar esta função.", ephemeral: true });
   }
 
   if (action === "aa") {
@@ -704,7 +704,7 @@ async function handleModal(interaction) {
   if (interaction.customId === "modal_criar_evento_rapido") {
     if (!isEventLeader(interaction)) {
       return interaction.reply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial**) pode criar eventos.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode criar eventos.",
         ephemeral: true,
       });
     }
