@@ -54,6 +54,8 @@ try { db.exec("ALTER TABLE events ADD COLUMN message_id TEXT"); } catch {}
 try { db.exec("ALTER TABLE events ADD COLUMN channel_id TEXT"); } catch {}
 try { db.exec("ALTER TABLE events ADD COLUMN category TEXT NOT NULL DEFAULT 'Geral'"); } catch {}
 try { db.exec("ALTER TABLE events ADD COLUMN start_at TEXT"); } catch {}
+try { db.exec("ALTER TABLE events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'normal'"); } catch {}
+try { db.exec("ALTER TABLE attendance ADD COLUMN role TEXT NOT NULL DEFAULT 'Membro'"); } catch {}
 
 // ── Eventos ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,12 @@ function createEvent(name, description, createdBy, category, startAt = null) {
   return db
     .prepare("INSERT INTO events (name, description, created_by, category, start_at) VALUES (?, ?, ?, ?, ?)")
     .run(name, description || "", createdBy, category, startAt);
+}
+
+function createLudraEvent(name, description, createdBy, startAt = null) {
+  return db
+    .prepare("INSERT INTO events (name, description, created_by, category, start_at, event_type) VALUES (?, ?, ?, 'Ludra', ?, 'ludra')")
+    .run(name, description || "", createdBy, startAt);
 }
 
 function createEventWithId(id, name, description, createdBy, category, startAt = null, messageId = null, channelId = null) {
@@ -149,13 +157,19 @@ function getCategoryNames() {
 
 // ── Presenças ─────────────────────────────────────────────────────────────────
 
-function checkIn(eventId, userId, username) {
+function checkIn(eventId, userId, username, role = "Membro") {
   return db
     .prepare(
-      `INSERT INTO attendance (event_id, user_id, username) VALUES (?, ?, ?)
-       ON CONFLICT(event_id, user_id) DO UPDATE SET username = excluded.username`
+      `INSERT INTO attendance (event_id, user_id, username, role) VALUES (?, ?, ?, ?)
+       ON CONFLICT(event_id, user_id) DO UPDATE SET username = excluded.username, role = excluded.role`
     )
-    .run(eventId, userId, username);
+    .run(eventId, userId, username, role);
+}
+
+function getUserAttendance(eventId, userId) {
+  return db
+    .prepare("SELECT * FROM attendance WHERE event_id = ? AND user_id = ?")
+    .get(eventId, userId);
 }
 
 function checkOut(eventId, userId) {
@@ -261,6 +275,7 @@ module.exports = {
   getCategoryNames,
   // eventos
   createEvent,
+  createLudraEvent,
   createEventWithId,
   getOpenEventByName,
   closeEvent,
@@ -270,6 +285,7 @@ module.exports = {
   updateEventMessage,
   checkIn,
   checkOut,
+  getUserAttendance,
   getAttendance,
   hasCheckedIn,
   getRanking,

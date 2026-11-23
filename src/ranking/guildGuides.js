@@ -67,9 +67,10 @@ function createPresencaGuideEmbed(guildName) {
       {
         name: "👑 Ações Rápidas da Liderança (Botões com 1 Clique)",
         value:
-          "• Clique em **`[ ➕ Criar Evento ]`** abaixo para abrir um formulário direto na tela e lançar o evento sem precisar digitar comando!\n" +
+          "• Clique em **`[ ➕ Criar Evento ]`** para abrir um formulário rápido de evento comum.\n" +
+          "• Clique em **`[ 🐉 Criar Raid Ludra ]`** para abrir na hora uma **Raid de 10 Vagas** com funções e grupos automáticos, sem precisar digitar nada!\n" +
           "• Clique em **`[ 🔒 Encerrar Evento ]`** para selecionar e encerrar qualquer evento aberto na hora.\n" +
-          "• Clique em **`[ 📜 Histórico de Eventos ]`** para consultar qualquer evento passado e ver a lista completa de presentes!\n" +
+          "• Clique em **`[ 📜 Histórico ]`** para consultar qualquer evento passado e ver a lista completa de presentes!\n" +
           "• *(Ou se preferir, use os comandos `/evento-criar`, `/evento-fechar`, `/painel-admin`)*"
       }
     )
@@ -99,13 +100,17 @@ function createPresencaButtons() {
       .setLabel("➕ Criar Evento")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
+      .setCustomId("btn_criar_ludra")
+      .setLabel("🐉 Criar Raid Ludra")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
       .setCustomId("btn_encerrar_evento")
       .setLabel("🔒 Encerrar Evento")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId("btn_historico_eventos")
-      .setLabel("📜 Histórico de Eventos")
-      .setStyle(ButtonStyle.Primary)
+      .setLabel("📜 Histórico")
+      .setStyle(ButtonStyle.Secondary)
   );
 
   return [rowMembers, rowAdmins];
