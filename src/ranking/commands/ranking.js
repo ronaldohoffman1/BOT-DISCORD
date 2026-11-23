@@ -35,6 +35,8 @@ module.exports = {
   },
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const category = interaction.options.getString("categoria")?.trim() || null;
     const limit = interaction.options.getInteger("top") ?? 10;
 
@@ -46,7 +48,7 @@ module.exports = {
       const msg = category
         ? `📭 Nenhuma presença registrada na categoria **${category}**.`
         : "📭 Ainda não há presenças registradas.";
-      return interaction.reply({ content: msg, ephemeral: true });
+      return interaction.editReply({ content: msg });
     }
 
     if (interaction.guild && ranking.length > 0) {
@@ -79,7 +81,7 @@ module.exports = {
       .setFooter({ text: "Kokushibo • Ranking de Presenças • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

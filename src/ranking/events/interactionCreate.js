@@ -137,6 +137,14 @@ async function handleSelect(interaction, commands) {
     const attendance = db.getAttendance(eventId);
     const closedEvent = db.getEventById(eventId);
 
+    // Responde ao usuário primeiro para liberar a interface do Discord imediatamente
+    await interaction.editReply({
+      content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.\n*(Esta mensagem sumirá em 1 minuto)*`,
+      components: [],
+      embeds: [],
+    });
+    scheduleAutoDelete(interaction, 60000);
+
     if (closedEvent.message_id && closedEvent.channel_id) {
       try {
         const channel = await interaction.client.channels.fetch(closedEvent.channel_id);
@@ -149,13 +157,6 @@ async function handleSelect(interaction, commands) {
         console.warn(`Não foi possível atualizar embed do evento encerrado ${eventId}:`, err.message);
       }
     }
-
-    await interaction.editReply({
-      content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.\n*(Esta mensagem sumirá em 1 minuto)*`,
-      components: [],
-      embeds: [],
-    });
-    scheduleAutoDelete(interaction, 60000);
     return;
   }
 
@@ -506,7 +507,15 @@ async function handleButton(interaction) {
       return;
     }
 
-    const openEvents = db.getOpenEvents();
+    let openEvents = db.getOpenEvents();
+    if (!openEvents.length && interaction.guild) {
+      try {
+        const { syncAllOpenCards } = require("../guildGuides");
+        await syncAllOpenCards(interaction.client);
+        openEvents = db.getOpenEvents();
+      } catch {}
+    }
+
     if (!openEvents.length) {
       await interaction.editReply({
         content: "📭 Não há nenhum evento aberto no momento para encerrar.",

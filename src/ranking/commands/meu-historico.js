@@ -29,6 +29,8 @@ module.exports = {
   },
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const targetUser = interaction.options.getUser("membro");
     const category = interaction.options.getString("categoria")?.trim() || null;
     const isSelf = !targetUser || targetUser.id === interaction.user.id;
@@ -41,9 +43,8 @@ module.exports = {
         member.permissions.has(PermissionFlagsBits.ManageEvents);
 
       if (!hasPermission) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "❌ Você precisa da permissão **Gerenciar Eventos** para ver o histórico de outros membros.",
-          ephemeral: true,
         });
       }
     }
@@ -55,11 +56,10 @@ module.exports = {
 
     if (!stats) {
       const scope = category ? ` na categoria **${category}**` : "";
-      return interaction.reply({
+      return interaction.editReply({
         content: isSelf
           ? `📭 Você ainda não tem nenhuma presença registrada${scope}.`
           : `📭 **${targetDisplayName}** não tem nenhuma presença registrada${scope}.`,
-        ephemeral: true,
       });
     }
 
@@ -92,7 +92,7 @@ module.exports = {
     embed.addFields({ name: "Eventos participados", value: eventsList });
     embed.setFooter({ text: "Kokushibo • Seu Histórico • Sumirá em 1m" });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

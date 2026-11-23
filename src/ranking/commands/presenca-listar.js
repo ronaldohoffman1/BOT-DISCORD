@@ -14,19 +14,20 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const eventId = interaction.options.getInteger("evento_id");
     const event = db.getEventById(eventId);
 
     if (!event) {
-      return interaction.reply({ content: `❌ Evento \`${eventId}\` não encontrado.`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Evento \`${eventId}\` não encontrado.` });
     }
 
     const attendance = db.getAttendance(eventId);
 
     if (!attendance.length) {
-      return interaction.reply({
+      return interaction.editReply({
         content: `📭 Nenhuma presença registrada no evento **${event.name}**.`,
-        ephemeral: true,
       });
     }
 
@@ -71,7 +72,7 @@ module.exports = {
       .setFooter({ text: "Kokushibo • Presenças do Evento • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

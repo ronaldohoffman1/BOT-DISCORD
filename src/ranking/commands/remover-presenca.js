@@ -11,23 +11,32 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const eventId = interaction.options.getInteger("evento_id");
-    const event = db.getEventById(eventId);
+    let event = db.getEventById(eventId);
+
+    if (!event && interaction.guild) {
+      try {
+        const { syncAllOpenCards } = require("../guildGuides");
+        await syncAllOpenCards(interaction.client);
+        event = db.getEventById(eventId);
+      } catch {}
+    }
 
     if (!event) {
-      await interaction.reply({ content: `❌ Evento \`${eventId}\` não encontrado.`, ephemeral: true });
+      await interaction.editReply({ content: `❌ Evento \`${eventId}\` não encontrado.` });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
       return;
     }
     if (!event.is_open) {
-      await interaction.reply({ content: `🔒 O evento **${event.name}** já está encerrado.`, ephemeral: true });
+      await interaction.editReply({ content: `🔒 O evento **${event.name}** já está encerrado.` });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
       return;
     }
     if (!db.hasCheckedIn(eventId, interaction.user.id)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `⚠️ Você não está registrado no evento **${event.name}**.`,
-        ephemeral: true,
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
       return;
@@ -36,6 +45,12 @@ module.exports = {
     db.checkOut(eventId, interaction.user.id);
 
     const attendance = db.getAttendance(eventId);
+
+    await interaction.editReply({
+      content: `✅ Presença removida do evento **${event.name}**. *(Esta mensagem sumirá em 1m)*`,
+    });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+
     if (event.message_id && event.channel_id) {
       try {
         const channel = await interaction.client.channels.fetch(event.channel_id);
@@ -46,11 +61,5 @@ module.exports = {
         });
       } catch {}
     }
-
-    await interaction.reply({
-      content: `✅ Presença removida do evento **${event.name}**. *(Esta mensagem sumirá em 1m)*`,
-      ephemeral: true,
-    });
-    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

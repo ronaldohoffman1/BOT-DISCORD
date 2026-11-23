@@ -407,6 +407,7 @@ module.exports = {
   isEventLeader,
   setupGuildRooms,
   syncAllOpenCards,
+  findChannelByKeywords,
   createPresencaGuideEmbed,
   createPresencaButtons,
   createAdvertenciasGuideEmbed,

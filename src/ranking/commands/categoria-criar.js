@@ -14,13 +14,14 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const name = interaction.options.getString("nome").trim();
     const description = (interaction.options.getString("descricao") || "").trim();
 
     if (db.getCategoryByName(name)) {
-      return interaction.reply({
+      return interaction.editReply({
         content: `⚠️ Já existe uma categoria com o nome **${name}**.`,
-        ephemeral: true,
       });
     }
 
@@ -38,6 +39,6 @@ module.exports = {
       .setFooter({ text: "Use /evento-criar para vincular um evento a esta categoria" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
   },
 };

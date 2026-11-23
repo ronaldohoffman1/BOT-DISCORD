@@ -62,10 +62,11 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     if (!isEventLeader(interaction)) {
-      return interaction.reply({
+      return interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode usar este comando.",
-        ephemeral: true,
       });
     }
 
@@ -75,10 +76,10 @@ module.exports = {
     const event = db.getEventById(eventId);
 
     if (!event) {
-      return interaction.reply({ content: `❌ Evento \`${eventId}\` não encontrado.`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Evento \`${eventId}\` não encontrado.` });
     }
     if (!event.is_open) {
-      return interaction.reply({ content: `🔒 Evento **${event.name}** está encerrado.`, ephemeral: true });
+      return interaction.editReply({ content: `🔒 Evento **${event.name}** está encerrado.` });
     }
 
     const member = await interaction.guild?.members?.fetch(target.id).catch(() => null);
@@ -86,32 +87,30 @@ module.exports = {
 
     if (sub === "add") {
       if (db.hasCheckedIn(eventId, target.id)) {
-        return interaction.reply({
+        return interaction.editReply({
           content: `⚠️ **${displayName}** já está registrado em **${event.name}**.`,
-          ephemeral: true,
         });
       }
       db.checkIn(eventId, target.id, displayName);
-      await refreshEventEmbed(interaction.client, eventId);
-      return interaction.reply({
+      await interaction.editReply({
         content: `✅ **${displayName}** adicionado ao evento **${event.name}**.`,
-        ephemeral: true,
       });
+      refreshEventEmbed(interaction.client, eventId).catch(() => {});
+      return;
     }
 
     if (sub === "remover") {
       if (!db.hasCheckedIn(eventId, target.id)) {
-        return interaction.reply({
+        return interaction.editReply({
           content: `⚠️ **${displayName}** não está registrado em **${event.name}**.`,
-          ephemeral: true,
         });
       }
       db.checkOut(eventId, target.id);
-      await refreshEventEmbed(interaction.client, eventId);
-      return interaction.reply({
+      await interaction.editReply({
         content: `✅ Presença de **${displayName}** removida do evento **${event.name}**.`,
-        ephemeral: true,
       });
+      refreshEventEmbed(interaction.client, eventId).catch(() => {});
+      return;
     }
   },
 };

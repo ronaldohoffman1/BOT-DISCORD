@@ -7,12 +7,13 @@ module.exports = {
     .setDescription("Lista todas as categorias com estatísticas de eventos e presenças"),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const categories = db.getCategories();
 
     if (!categories.length) {
-      return interaction.reply({
+      return interaction.editReply({
         content: "📭 Nenhuma categoria criada ainda. Use `/categoria-criar` para adicionar.",
-        ephemeral: true,
       });
     }
 
@@ -33,7 +34,7 @@ module.exports = {
       .setFooter({ text: "Use /ranking categoria:<nome> • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

@@ -11,19 +11,28 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const eventId = interaction.options.getInteger("evento_id");
-    const event = db.getEventById(eventId);
+    let event = db.getEventById(eventId);
+
+    if (!event && interaction.guild) {
+      try {
+        const { syncAllOpenCards } = require("../guildGuides");
+        await syncAllOpenCards(interaction.client);
+        event = db.getEventById(eventId);
+      } catch {}
+    }
 
     if (!event) {
-      return interaction.reply({ content: `❌ Evento \`${eventId}\` não encontrado.`, ephemeral: true });
+      return interaction.editReply({ content: `❌ Evento \`${eventId}\` não encontrado.` });
     }
     if (!event.is_open) {
-      return interaction.reply({ content: `🔒 O evento **${event.name}** está encerrado.`, ephemeral: true });
+      return interaction.editReply({ content: `🔒 O evento **${event.name}** está encerrado.` });
     }
     if (db.hasCheckedIn(eventId, interaction.user.id)) {
-      return interaction.reply({
+      return interaction.editReply({
         content: `⚠️ Você já confirmou presença no evento **${event.name}**.`,
-        ephemeral: true,
       });
     }
 
@@ -33,18 +42,6 @@ module.exports = {
 
     const attendance = db.getAttendance(eventId);
     const total = attendance.length;
-
-    // Se o evento tem painel de mensagem ativo, atualiza o embed ao vivo
-    if (event.message_id && event.channel_id) {
-      try {
-        const channel = await interaction.client.channels.fetch(event.channel_id);
-        const message = await channel.messages.fetch(event.message_id);
-        await message.edit({
-          embeds: [buildEventEmbed(event, attendance, channel.guild)],
-          components: buildEventComponents(eventId, !!event.is_open),
-        });
-      } catch {}
-    }
 
     const embed = new EmbedBuilder()
       .setColor(0x57f287)
@@ -56,7 +53,19 @@ module.exports = {
       .setFooter({ text: `Registrado como ${displayName} • Sumirá em 1m` })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+
+    // Se o evento tem painel de mensagem ativo, atualiza o embed ao vivo em background
+    if (event.message_id && event.channel_id) {
+      try {
+        const channel = await interaction.client.channels.fetch(event.channel_id);
+        const message = await channel.messages.fetch(event.message_id);
+        await message.edit({
+          embeds: [buildEventEmbed(event, attendance, channel.guild)],
+          components: buildEventComponents(eventId, !!event.is_open),
+        });
+      } catch {}
+    }
   },
 };

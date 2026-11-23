@@ -12,13 +12,22 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     const showAll = interaction.options.getBoolean("todos") ?? false;
-    const events = showAll ? db.getAllEvents() : db.getOpenEvents();
+    let events = showAll ? db.getAllEvents() : db.getOpenEvents();
+
+    if (!events.length && interaction.guild) {
+      try {
+        const { syncAllOpenCards } = require("../guildGuides");
+        await syncAllOpenCards(interaction.client);
+        events = showAll ? db.getAllEvents() : db.getOpenEvents();
+      } catch {}
+    }
 
     if (!events.length) {
-      return interaction.reply({
+      return interaction.editReply({
         content: showAll ? "📭 Nenhum evento cadastrado." : "📭 Nenhum evento aberto no momento.",
-        ephemeral: true,
       });
     }
 
@@ -46,7 +55,7 @@ module.exports = {
       .setFooter({ text: "Kokushibo • Lista de Eventos • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };
