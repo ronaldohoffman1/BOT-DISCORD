@@ -151,24 +151,15 @@ async function handleSelect(interaction, commands) {
     });
     scheduleAutoDelete(interaction, 60000);
 
+    // Deleta o card do evento do chat (limpa o canal de presenças)
     if (closedEvent.message_id && closedEvent.channel_id) {
       try {
         const channel = await interaction.client.channels.fetch(closedEvent.channel_id);
         const message = await channel.messages.fetch(closedEvent.message_id);
-        const isLudra = closedEvent.event_type === 'ludra' || closedEvent.category?.toLowerCase() === 'ludra';
-        if (isLudra) {
-          await message.edit({
-            embeds: [buildLudraEmbed(closedEvent, attendance, channel.guild)],
-            components: buildLudraComponents(eventId, false, attendance),
-          });
-        } else {
-          await message.edit({
-            embeds: [buildEventEmbed(closedEvent, attendance, channel.guild)],
-            components: buildEventComponents(eventId, false),
-          });
-        }
+        await message.delete();
+        console.log(`🗑️ Card #${eventId} (${closedEvent.name}) deletado de #${channel.name}`);
       } catch (err) {
-        console.warn(`Não foi possível atualizar embed do evento encerrado ${eventId}:`, err.message);
+        console.warn(`Não foi possível deletar card do evento ${eventId}:`, err.message);
       }
     }
     return;
