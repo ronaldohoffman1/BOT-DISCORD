@@ -201,20 +201,24 @@ function buildLudraComponents(eventId, isOpen, attendance = []) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  // Linha 2: Ações de gerenciamento (Sair, Escalar Membro, Remover)
+  // Linha 2: Confirmação/Recusa de presença e Gerenciamento de vagas
   const rowActions = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`lr_leave:${eventId}`)
-      .setLabel("❌ Sair da Raid")
-      .setStyle(ButtonStyle.Secondary),
+      .setCustomId(`btn_ludra_confirmar:${eventId}`)
+      .setLabel("✅ Confirmar Presença")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`btn_ludra_recusar:${eventId}`)
+      .setLabel("❌ Recusar Presença")
+      .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(`lr_escalar:${eventId}`)
-      .setLabel("👑 Escalar Membro")
-      .setStyle(ButtonStyle.Success),
+      .setLabel("👑 Preencher Vagas")
+      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`lr_remove:${eventId}`)
       .setLabel("🗑️ Remover Alguém")
-      .setStyle(ButtonStyle.Danger)
+      .setStyle(ButtonStyle.Secondary)
   );
 
   return [rowRoles, rowActions];

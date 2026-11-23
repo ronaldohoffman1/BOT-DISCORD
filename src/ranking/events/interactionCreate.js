@@ -427,6 +427,52 @@ async function handleSelect(interaction, commands) {
     return;
   }
 
+  // ── Ludra: Membro escolheu sua própria função ao confirmar presença ──
+  if (interaction.customId.startsWith("select_ludra_self_role:")) {
+    await interaction.deferUpdate().catch(() => {});
+    const [, evIdStr] = interaction.customId.split(":");
+    const eventId = parseInt(evIdStr);
+    const role = interaction.values[0];
+
+    const event = db.getEventById(eventId);
+    if (!event || !event.is_open) {
+      await interaction.editReply({ content: "🔒 Esta Raid Ludra já está encerrada.", components: [] });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const attendance = db.getAttendance(eventId);
+    const ROLE_LIMITS = { tank: 2, healer: 2, cantor: 2, dps: 4, reserva: 99 };
+    const ROLE_LABELS = { tank: "🛡️ Tank", healer: "💚 Healer", cantor: "🎵 Cantor", dps: "⚔️ DPS", reserva: "🔄 Reserva" };
+
+    const limit = ROLE_LIMITS[role] || 99;
+    const currentInRole = attendance.filter(a => a.role === role && a.user_id !== interaction.user.id).length;
+
+    if (currentInRole >= limit) {
+      await interaction.editReply({
+        content: `⚠️ As vagas para **${ROLE_LABELS[role]}** já estão esgotadas (${limit}/${limit})!\nEscolha outra função ou entre como **🔄 Reserva**!`,
+        components: []
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    db.checkIn(eventId, interaction.user.id, displayName, role);
+
+    await interaction.editReply({
+      content: `✅ **Presença Confirmada!**\nVocê foi escalado como **${ROLE_LABELS[role]}** na Raid Ludra com sucesso!\n*(Esta mensagem sumirá em 1 minuto)*`,
+      components: [],
+      embeds: []
+    });
+    scheduleAutoDelete(interaction, 60000);
+
+    updateEmbedFromDB(interaction.client, eventId).catch(err => {
+      console.warn(`Erro ao atualizar embed da Ludra #${eventId}:`, err.message);
+    });
+    return;
+  }
+
   if (interaction.customId !== "evento_cat_select") return;
 
   const { pending } = require("../commands/evento-criar");
@@ -458,11 +504,19 @@ async function handleSelect(interaction, commands) {
 
 async function handleButton(interaction) {
   const [action, eventIdStr] = interaction.customId.split(":");
+  const isModalOpener =
+    interaction.customId === "btn_criar_evento" ||
+    interaction.customId === "btn_ludra_manual_horario" ||
+    interaction.customId.startsWith("btn_ludra_preencher_lote:") ||
+    ["aa", "ar"].includes(action);
+
   const isEventAction =
-    ["pa", "pr", "lr", "lj"].includes(action) ||
-    interaction.customId.startsWith("lr_leave:") ||
-    interaction.customId.startsWith("lr_escalar:") ||
-    interaction.customId.startsWith("lr_remove:");
+    !isModalOpener && (
+      ["pa", "pr", "lr", "lj", "btn_ludra_confirmar", "btn_ludra_recusar"].includes(action) ||
+      interaction.customId.startsWith("lr_leave:") ||
+      interaction.customId.startsWith("lr_escalar:") ||
+      interaction.customId.startsWith("lr_remove:")
+    );
   const isGuideQuery = [
     "btn_guia_historico",
     "btn_guia_ranking",
@@ -714,12 +768,70 @@ async function handleButton(interaction) {
         },
       ]);
 
+    const rowBtnManual = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("btn_ludra_manual_horario")
+        .setLabel("✍️ Digitar Dia/Horário Manualmente")
+        .setStyle(ButtonStyle.Primary)
+    );
+
     await interaction.editReply({
-      content: "🐉 **Criar Raid Ludra (10 Membros — 2 PTs):**\nSelecione abaixo o dia e horário do evento para abrir o card automático:\n*(Esta mensagem sumirá em 1 minuto)*",
-      components: [new ActionRowBuilder().addComponents(selectMenu)],
+      content: "🐉 **Criar Raid Ludra (10 Membros — 2 PTs):**\nEscolha um horário rápido abaixo ou clique no botão para digitar dia e hora manualmente:\n*(Esta mensagem sumirá em 1 minuto)*",
+      components: [new ActionRowBuilder().addComponents(selectMenu), rowBtnManual],
     });
     scheduleAutoDelete(interaction, 60000);
     return;
+  }
+
+  // 4.2 Botão: Abrir formulário para digitar dia/horário manualmente
+  if (interaction.customId === "btn_ludra_manual_horario") {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode criar Raids de Ludra.",
+        ephemeral: true,
+      });
+    }
+
+    const now = new Date();
+    const brNow = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    const pad = (n) => String(n).padStart(2, "0");
+    const todayStr = `${pad(brNow.getUTCDate())}/${pad(brNow.getUTCMonth() + 1)}/${brNow.getUTCFullYear()}`;
+
+    const modal = new ModalBuilder()
+      .setCustomId("modal_ludra_manual")
+      .setTitle("🐉 Criar Raid Ludra (Manual)");
+
+    const inputData = new TextInputBuilder()
+      .setCustomId("ludra_data")
+      .setLabel("Data da Raid (DD/MM/AAAA)")
+      .setStyle(TextInputStyle.Short)
+      .setValue(todayStr)
+      .setRequired(true)
+      .setMaxLength(10);
+
+    const inputHora = new TextInputBuilder()
+      .setCustomId("ludra_hora")
+      .setLabel("Hora de Início (HH:MM)")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("Ex: 21:00 ou 21:30")
+      .setRequired(true)
+      .setMaxLength(5);
+
+    const inputDesc = new TextInputBuilder()
+      .setCustomId("ludra_desc")
+      .setLabel("Descrição / Observações (Opcional)")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Ex: Concentração no canal de voz 15 minutos antes.")
+      .setRequired(false)
+      .setMaxLength(500);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(inputData),
+      new ActionRowBuilder().addComponents(inputHora),
+      new ActionRowBuilder().addComponents(inputDesc)
+    );
+
+    return interaction.showModal(modal);
   }
 
   // 5. Botão: Encerrar Evento
@@ -735,7 +847,6 @@ async function handleButton(interaction) {
     let openEvents = db.getOpenEvents();
     if (!openEvents.length && interaction.guild) {
       try {
-        const { syncAllOpenCards } = require("../guildGuides");
         await syncAllOpenCards(interaction.client);
         openEvents = db.getOpenEvents();
       } catch {}
@@ -858,8 +969,48 @@ async function handleButton(interaction) {
     return;
   }
 
-  // ── Botão: Sair da Raid Ludra (lr_leave:eventId) ──
-  if (action === "lr_leave") {
+  // ── Botão: Confirmar Presença na Raid Ludra (btn_ludra_confirmar:eventId) ──
+  if (action === "btn_ludra_confirmar") {
+    const eventId = parseInt(eventIdStr);
+    const event = db.getEventById(eventId);
+    if (!event || !event.is_open) {
+      await interaction.editReply({ content: "🔒 Esta Raid Ludra já está encerrada." });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const attendance = db.getAttendance(eventId);
+    const existing = attendance.find(a => a.user_id === interaction.user.id);
+    if (existing) {
+      const ROLE_LABELS = { tank: "🛡️ Tank", healer: "💚 Healer", cantor: "🎵 Cantor", dps: "⚔️ DPS", reserva: "🔄 Reserva" };
+      await interaction.editReply({
+        content: `✅ Você já confirmou presença como **${ROLE_LABELS[existing.role] || existing.role}** nesta Raid Ludra! Se desejar mudar de função, clique no botão da respectiva classe.`
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`select_ludra_self_role:${eventId}`)
+      .setPlaceholder("Selecione sua função para confirmar presença...")
+      .addOptions([
+        { label: "🛡️ Main Tank / Off Tank", value: "tank", description: "Gladiador / Templário (Máx 2)" },
+        { label: "💚 Main Healer / Off Healer", value: "healer", description: "Clérigo (Máx 2)" },
+        { label: "🎵 Cantor / Buffer", value: "cantor", description: "Chanter (Máx 2)" },
+        { label: "⚔️ DPS (Dano)", value: "dps", description: "Assassino / Ranger / Mago / SM (Máx 4)" },
+        { label: "🔄 Reserva (Suplente)", value: "reserva", description: "Banco de reservas para substituição" },
+      ]);
+
+    await interaction.editReply({
+      content: "✅ **Confirmar Presença na Raid Ludra:**\nEscolha abaixo a função em que você vai jogar:\n*(Esta mensagem sumirá em 1 minuto)*",
+      components: [new ActionRowBuilder().addComponents(select)],
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
+  // ── Botão: Recusar Presença / Sair da Raid Ludra (btn_ludra_recusar:eventId / lr_leave:eventId) ──
+  if (action === "btn_ludra_recusar" || action === "lr_leave") {
     const eventId = parseInt(eventIdStr);
     const event = db.getEventById(eventId);
     if (!event || !event.is_open) {
@@ -869,13 +1020,15 @@ async function handleButton(interaction) {
     }
 
     if (!db.hasCheckedIn(eventId, interaction.user.id)) {
-      await interaction.editReply({ content: "⚠️ Você não está escalado nesta Raid Ludra." });
+      await interaction.editReply({ content: "⚠️ Você não está na lista desta Raid Ludra." });
       scheduleAutoDelete(interaction, 30000);
       return;
     }
 
     db.checkOut(eventId, interaction.user.id);
-    await interaction.editReply({ content: "✅ Você saiu da lista da Raid Ludra.\n*(Esta mensagem sumirá em 1m)*" });
+    await interaction.editReply({
+      content: "❌ **Presença Recusada / Cancelada**.\nVocê foi removido da lista da Raid Ludra e sua vaga foi liberada.\n*(Esta mensagem sumirá em 1m)*"
+    });
     scheduleAutoDelete(interaction, 60000);
 
     updateEmbedFromDB(interaction.client, eventId).catch(err => {
@@ -884,11 +1037,11 @@ async function handleButton(interaction) {
     return;
   }
 
-  // ── Botão: Escalar Membro na Raid Ludra (lr_escalar:eventId) ──
+  // ── Botão: Preencher Vagas na Raid Ludra (lr_escalar:eventId) ──
   if (action === "lr_escalar") {
     if (!isEventLeader(interaction)) {
       await interaction.editReply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode escalar membros manualmente.",
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode preencher vagas.",
       });
       scheduleAutoDelete(interaction, 30000);
       return;
@@ -903,14 +1056,59 @@ async function handleButton(interaction) {
 
     const userSelect = new UserSelectMenuBuilder()
       .setCustomId(`select_ludra_user:${eventId}`)
-      .setPlaceholder("Selecione o membro do Discord para escalar na Raid Ludra...");
+      .setPlaceholder("Selecione um membro do Discord para escalar na Raid Ludra...");
+
+    const btnLoteRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`btn_ludra_preencher_lote:${eventId}`)
+        .setLabel("📝 Preencher PTs em Lote (Digitar Nomes)")
+        .setStyle(ButtonStyle.Success)
+    );
 
     await interaction.editReply({
-      content: "👑 **Escalar Membro na Raid Ludra:**\nSelecione abaixo o membro que você quer colocar na PT:\n*(Esta mensagem sumirá em 1 minuto)*",
-      components: [new ActionRowBuilder().addComponents(userSelect)],
+      content: "👑 **Preencher Vagas da Raid Ludra:**\n• Selecione um membro no menu abaixo para escalar individualmente,\n• Ou clique em **Preencher PTs em Lote** para digitar a lista completa das duas PTs de uma vez:\n*(Esta mensagem sumirá em 1 minuto)*",
+      components: [new ActionRowBuilder().addComponents(userSelect), btnLoteRow],
     });
     scheduleAutoDelete(interaction, 60000);
     return;
+  }
+
+  // ── Botão: Modal para preencher PTs em lote ──
+  if (interaction.customId.startsWith("btn_ludra_preencher_lote:")) {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança pode preencher vagas em lote.",
+        ephemeral: true,
+      });
+    }
+
+    const [, evIdStr] = interaction.customId.split(":");
+    const modal = new ModalBuilder()
+      .setCustomId(`modal_ludra_lote:${evIdStr}`)
+      .setTitle("Preencher Vagas da Raid Ludra");
+
+    const inputPt1 = new TextInputBuilder()
+      .setCustomId("ludra_pt1")
+      .setLabel("PT 1 Alpha (Tank, Healer, Cantor, DPS, DPS)")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Ex: Kokushibo, Fon, Cyclonado, Molezinha, Heyguss")
+      .setRequired(false)
+      .setMaxLength(300);
+
+    const inputPt2 = new TextInputBuilder()
+      .setCustomId("ludra_pt2")
+      .setLabel("PT 2 Beta (Tank, Healer, Cantor, DPS, DPS)")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Ex: Tanker2, Vickypyrena, Cantor2, Indio, Guigo")
+      .setRequired(false)
+      .setMaxLength(300);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(inputPt1),
+      new ActionRowBuilder().addComponents(inputPt2)
+    );
+
+    return interaction.showModal(modal);
   }
 
   // ── Botão: Remover Membro da Raid Ludra (lr_remove:eventId) ──
@@ -1213,6 +1411,103 @@ async function handleModal(interaction) {
 
     await interaction.reply({
       content: `✅ **Evento criado com sucesso!**\nO card de presenças de **${name}** (ID #${eventId}) já foi aberto no canal com os botões de confirmação!\n*(Esta mensagem sumirá em 1 minuto)*`,
+      ephemeral: true,
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
+  // Modal de criação manual de Raid Ludra
+  if (interaction.customId === "modal_ludra_manual") {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode criar Raids de Ludra.",
+        ephemeral: true,
+      });
+    }
+
+    const dateStr = interaction.fields.getTextInputValue("ludra_data").trim();
+    const hourStr = interaction.fields.getTextInputValue("ludra_hora").trim();
+    const customDesc = (interaction.fields.getTextInputValue("ludra_desc") || "").trim();
+
+    const dateMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const hourMatch = hourStr.match(/^(\d{2}):(\d{2})$/);
+    if (!dateMatch || !hourMatch) {
+      return interaction.reply({
+        content: "❌ Data ou hora inválida. Use o formato **DD/MM/AAAA** (ex: 23/11/2026) e **HH:MM** (ex: 21:30).",
+        ephemeral: true,
+      });
+    }
+
+    const [, d, m, y] = dateMatch;
+    const [, hh, mm] = hourMatch;
+    const selectedTime = `${d}/${m}/${y} às ${hh}:${mm}`;
+    const creatorName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    const desc = customDesc || "🔥 **Raid Oficial de Legião — Fight Kings (Ludra 10p)**\nConcentração no Discord com **15 minutos de antecedência**. Consumíveis, poções e pergaminhos prontos!";
+
+    const result = db.createLudraEvent("Raid Ludra", desc, creatorName, selectedTime);
+    const eventId = result.lastInsertRowid;
+    const event = db.getEventById(eventId);
+
+    const embed = buildLudraEmbed(event, [], interaction.guild);
+    const components = buildLudraComponents(eventId, true, []);
+
+    let targetChannel = interaction.guild ? findChannelByKeywords(interaction.guild, ["controle-de-presenca", "presenca"]) : null;
+    if (!targetChannel) targetChannel = interaction.channel;
+
+    const msg = await targetChannel.send({ embeds: [embed], components });
+    db.updateEventMessage(eventId, msg.id, targetChannel.id);
+
+    await interaction.reply({
+      content: `✅ **Raid Ludra #${eventId} criada com sucesso!**\n🗓️ Data e Horário: **${selectedTime}**\nO card com as vagas e botões já está publicado em <#${targetChannel.id}>!\n*(Esta mensagem sumirá em 1 minuto)*`,
+      ephemeral: true,
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
+  // Modal para preencher PT 1 e PT 2 em lote
+  if (interaction.customId.startsWith("modal_ludra_lote:")) {
+    const [, evIdStr] = interaction.customId.split(":");
+    const eventId = parseInt(evIdStr);
+    const event = db.getEventById(eventId);
+    if (!event || !event.is_open) {
+      return interaction.reply({ content: "🔒 Esta Raid Ludra já está encerrada.", ephemeral: true });
+    }
+
+    const pt1Raw = interaction.fields.getTextInputValue("ludra_pt1") || "";
+    const pt2Raw = interaction.fields.getTextInputValue("ludra_pt2") || "";
+
+    const parseNames = (str) => str.split(/[,;\n]+/).map(s => s.trim().replace(/^@/, "")).filter(Boolean);
+    const pt1Names = parseNames(pt1Raw);
+    const pt2Names = parseNames(pt2Raw);
+
+    const rolesOrder = ["tank", "healer", "cantor", "dps", "dps"];
+
+    pt1Names.slice(0, 5).forEach((name, idx) => {
+      const role = rolesOrder[idx] || "dps";
+      const member = interaction.guild?.members?.cache?.find(m =>
+        m.displayName.toLowerCase() === name.toLowerCase() ||
+        m.user.username.toLowerCase() === name.toLowerCase()
+      );
+      const userId = member ? member.id : `custom_p1_${idx + 1}_${Date.now()}`;
+      db.checkIn(eventId, userId, member?.displayName || name, role);
+    });
+
+    pt2Names.slice(0, 5).forEach((name, idx) => {
+      const role = rolesOrder[idx] || "dps";
+      const member = interaction.guild?.members?.cache?.find(m =>
+        m.displayName.toLowerCase() === name.toLowerCase() ||
+        m.user.username.toLowerCase() === name.toLowerCase()
+      );
+      const userId = member ? member.id : `custom_p2_${idx + 1}_${Date.now()}`;
+      db.checkIn(eventId, userId, member?.displayName || name, role);
+    });
+
+    await updateEmbedFromDB(interaction.client, eventId);
+
+    await interaction.reply({
+      content: `✅ **Vagas preenchidas com sucesso na Raid Ludra #${eventId}!**\nO card público já foi atualizado com as duas PTs.\n*(Esta mensagem sumirá em 1 minuto)*`,
       ephemeral: true,
     });
     scheduleAutoDelete(interaction, 60000);
