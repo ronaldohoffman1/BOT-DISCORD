@@ -78,6 +78,24 @@ client.once('clientReady', async () => {
     try {
       const db = require('./ranking/database/db');
       const { updateEmbedFromDB } = require('./ranking/events/interactionCreate');
+      const { setupGuildRooms, syncAllOpenCards } = require('./ranking/guildGuides');
+
+      // Atualiza o painel de controle de presenças em todas as salas (adiciona novos botões)
+      for (const guild of client.guilds.cache.values()) {
+        try {
+          const logs = await setupGuildRooms(guild, client, false);
+          logs.forEach(l => console.log(`📌 [Painel] ${l}`));
+        } catch (err) {
+          console.warn(`Aviso ao atualizar painel em ${guild.name}:`, err.message);
+        }
+      }
+
+      // Sincroniza botões de cards de eventos abertos existentes
+      await syncAllOpenCards(client).catch(err =>
+        console.warn('Aviso ao sincronizar cards abertos:', err.message)
+      );
+
+      // Sincroniza embeds de eventos abertos
       const openEvents = db.getOpenEvents();
       for (const ev of openEvents) {
         if (ev.message_id && ev.channel_id) {
