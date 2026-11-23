@@ -41,20 +41,6 @@ function scheduleAutoDeleteMessage(message, delayMs = 60000) {
 
 async function refreshMessage(interaction, event) {
   const attendance = db.getAttendance(event.id);
-  if (interaction.guild && attendance.length > 0) {
-    try {
-      const fetched = await interaction.guild.members.fetch({
-        user: attendance.map(a => a.user_id)
-      });
-      for (const a of attendance) {
-        const m = fetched.get(a.user_id);
-        if (m && m.displayName !== a.username) {
-          db.checkIn(event.id, a.user_id, m.displayName);
-          a.username = m.displayName;
-        }
-      }
-    } catch {}
-  }
   await interaction.update({
     embeds: [buildEventEmbed(event, attendance, interaction.guild)],
     components: buildEventComponents(event.id, !!event.is_open),
@@ -236,10 +222,14 @@ async function handleSelect(interaction, commands) {
 
   // Remoção de membro pela liderança via dropdown do card do evento
   if (interaction.customId.startsWith("select_remover_membro_evento:")) {
+    // Responde instantaneamente para o Discord não dar timeout
+    await interaction.deferUpdate();
+
     if (!isEventLeader(interaction)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
-        ephemeral: true,
+        components: [],
+        embeds: [],
       });
       scheduleAutoDelete(interaction, 30000);
       return;
@@ -250,7 +240,7 @@ async function handleSelect(interaction, commands) {
     const event = db.getEventById(eventId);
 
     if (!event || !event.is_open) {
-      await interaction.update({
+      await interaction.editReply({
         content: "⚠️ Este evento já foi encerrado ou não foi encontrado.",
         components: [],
         embeds: [],
@@ -261,7 +251,7 @@ async function handleSelect(interaction, commands) {
 
     const targetUserId = interaction.values[0];
     if (!db.hasCheckedIn(eventId, targetUserId)) {
-      await interaction.update({
+      await interaction.editReply({
         content: "⚠️ O membro selecionado não está mais registrado neste evento.",
         components: [],
         embeds: [],
@@ -270,21 +260,22 @@ async function handleSelect(interaction, commands) {
       return;
     }
 
-    let memberName = targetUserId;
-    try {
-      const member = await interaction.guild?.members?.fetch(targetUserId);
-      if (member) memberName = member.displayName || member.user.displayName || member.user.username;
-    } catch {}
+    const member = interaction.guild?.members?.cache?.get(targetUserId);
+    const memberName = member?.displayName || targetUserId;
 
     db.checkOut(eventId, targetUserId);
-    await updateEmbedFromDB(interaction.client, eventId);
 
-    await interaction.update({
+    await interaction.editReply({
       content: `✅ O membro **${memberName}** foi removido da lista de presenças do evento **${event.name}** pela liderança!\n*(Esta mensagem sumirá em 1 minuto)*`,
       components: [],
       embeds: [],
     });
     scheduleAutoDelete(interaction, 60000);
+
+    // Atualiza a mensagem do evento no canal em segundo plano
+    updateEmbedFromDB(interaction.client, eventId).catch(err => {
+      console.warn(`Erro ao atualizar embed do evento ${eventId}:`, err.message);
+    });
     return;
   }
 
@@ -352,20 +343,15 @@ async function handleButton(interaction) {
   }
 
   if (interaction.customId === "btn_guia_ranking") {
+    await interaction.deferReply({ ephemeral: true });
+
     const ranking = db.getRanking(10);
     if (!ranking.length) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "📭 Ainda não há presenças registradas nos eventos.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 60000);
       return;
-    }
-
-    if (interaction.guild && ranking.length > 0) {
-      await interaction.guild.members.fetch({
-        user: ranking.map(r => r.user_id)
-      }).catch(() => null);
     }
 
     const MEDALS = ["🥇", "🥈", "🥉"];
@@ -381,7 +367,10 @@ async function handleButton(interaction) {
       .setDescription(lines.join("\n"))
       .setFooter({ text: "Kokushibo • Ranking Geral • Sumirá em 1m" })
       .setTimestamp();
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
     scheduleAutoDelete(interaction, 60000);
     return;
   }
@@ -598,10 +587,12 @@ async function handleButton(interaction) {
 
   // Liderança removendo membro da lista de presença
   if (action === "lr") {
+    // Responde instantaneamente (< 50ms) ao Discord para evitar erro de tempo limite
+    await interaction.deferReply({ ephemeral: true });
+
     if (!isEventLeader(interaction)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
       return;
@@ -609,20 +600,11 @@ async function handleButton(interaction) {
 
     const attendance = db.getAttendance(eventId);
     if (!attendance.length) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `📭 Nenhum membro confirmou presença no evento **${event.name}** ainda.`,
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
       return;
-    }
-
-    if (interaction.guild && attendance.length > 0) {
-      try {
-        await interaction.guild.members.fetch({
-          user: attendance.slice(0, 25).map(a => a.user_id)
-        });
-      } catch {}
     }
 
     const select = new StringSelectMenuBuilder()
@@ -640,10 +622,9 @@ async function handleButton(interaction) {
         })
       );
 
-    await interaction.reply({
+    await interaction.editReply({
       content: `🗑️ **Remover Membro — ${event.name}**\nSelecione abaixo quem você deseja remover da lista de presenças:${attendance.length > 25 ? "\n*(Exibindo os primeiros 25 membros)*" : ""}\n*(Esta mensagem sumirá em 1 minuto)*`,
       components: [new ActionRowBuilder().addComponents(select)],
-      ephemeral: true,
     });
     scheduleAutoDelete(interaction, 60000);
     return;
@@ -855,20 +836,6 @@ async function updateEmbedFromDB(client, eventId) {
     const channel = await client.channels.fetch(event.channel_id);
     const message = await channel.messages.fetch(event.message_id);
     const attendance = db.getAttendance(eventId);
-    if (channel.guild && attendance.length > 0) {
-      try {
-        const fetched = await channel.guild.members.fetch({
-          user: attendance.map(a => a.user_id)
-        });
-        for (const a of attendance) {
-          const m = fetched.get(a.user_id);
-          if (m && m.displayName !== a.username) {
-            db.checkIn(event.id, a.user_id, m.displayName);
-            a.username = m.displayName;
-          }
-        }
-      } catch {}
-    }
     await message.edit({
       embeds: [buildEventEmbed(event, attendance, channel.guild)],
       components: buildEventComponents(eventId, !!event.is_open),

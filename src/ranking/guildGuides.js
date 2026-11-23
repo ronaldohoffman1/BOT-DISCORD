@@ -246,31 +246,35 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
 
       // Atualiza automaticamente todos os cards de eventos abertos que já estavam postados no canal
       if (msgs) {
-        const { buildEventComponents } = require("./utils/attendanceEmbed");
-        const db = require("./database/db");
-        for (const msg of msgs.values()) {
-          if (msg.author.id !== client.user.id) continue;
-          const firstRow = msg.components?.[0];
-          if (!firstRow) continue;
-          const paButton = firstRow.components?.find(b => b.customId?.startsWith("pa:"));
-          if (paButton) {
-            const eventId = parseInt(paButton.customId.split(":")[1]);
-            const hasLr = firstRow.components?.some(b => b.customId?.startsWith("lr:"));
-            if (!hasLr && !paButton.disabled) {
-              try {
-                await msg.edit({
-                  components: buildEventComponents(eventId, true)
-                });
-                results.push(`🔄 Botão [Remover Membro] adicionado ao card #${eventId} em ${chPresenca.name}`);
-                try {
-                  db.updateEventMessage(eventId, msg.id, chPresenca.id);
-                } catch {}
-              } catch (e) {
-                results.push(`⚠️ Falha ao atualizar card #${eventId}: ${e.message}`);
+        setImmediate(async () => {
+          try {
+            const { buildEventComponents } = require("./utils/attendanceEmbed");
+            const db = require("./database/db");
+            for (const msg of msgs.values()) {
+              if (msg.author.id !== client.user.id) continue;
+              const firstRow = msg.components?.[0];
+              if (!firstRow) continue;
+              const paButton = firstRow.components?.find(b => b.customId?.startsWith("pa:"));
+              if (paButton) {
+                const eventId = parseInt(paButton.customId.split(":")[1]);
+                const hasLr = firstRow.components?.some(b => b.customId?.startsWith("lr:"));
+                if (!hasLr && !paButton.disabled) {
+                  try {
+                    await msg.edit({
+                      components: buildEventComponents(eventId, true)
+                    });
+                    console.log(`🔄 Botão [Remover Membro] adicionado ao card #${eventId} em ${chPresenca.name}`);
+                    try {
+                      db.updateEventMessage(eventId, msg.id, chPresenca.id);
+                    } catch {}
+                  } catch (e) {
+                    console.warn(`⚠️ Falha ao atualizar card #${eventId}: ${e.message}`);
+                  }
+                }
               }
             }
-          }
-        }
+          } catch {}
+        });
       }
     } catch (err) {
       results.push(`⚠️ Erro em ${chPresenca.name}: ${err.message}`);
