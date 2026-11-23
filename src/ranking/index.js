@@ -3,7 +3,7 @@ const path = require("path");
 const { Client, GatewayIntentBits, Collection, ActivityType } = require("discord.js");
 const interactionCreateEvent = require("./events/interactionCreate");
 const readyEvent = require("./events/ready");
-const { setupGuildRooms } = require("./guildGuides");
+const { setupGuildRooms, syncAllOpenCards } = require("./guildGuides");
 const { ensureWarningRoles } = require("../warningManager");
 
 const rankingCommands = new Collection();
@@ -80,6 +80,13 @@ function startStandaloneRankingBot(token) {
       activities: [{ name: '📋 Presenças & Rankings | /ranking', type: ActivityType.Custom }],
       status: 'online'
     });
+
+    // Sincroniza cards de todos os eventos abertos IMEDIATAMENTE (adiciona 3 botões a cards existentes)
+    try {
+      await syncAllOpenCards(client);
+    } catch (err) {
+      console.warn("Aviso ao sincronizar cards abertos:", err.message);
+    }
 
     for (const guild of client.guilds.cache.values()) {
       await ensureNobreRole(guild);

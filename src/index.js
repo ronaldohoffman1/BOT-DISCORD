@@ -74,9 +74,7 @@ client.once('clientReady', async () => {
   }
 
   // Se configurado token secundário separado para o Nemon, inicia o bot secundário em paralelo
-  if (isDualBot) {
-    startStandaloneRankingBot(nemonToken);
-  } else {
+  if (!isDualBot) {
     try {
       const db = require('./ranking/database/db');
       const { updateEmbedFromDB } = require('./ranking/events/interactionCreate');
@@ -533,8 +531,16 @@ if (!token) {
   process.exit(1);
 }
 
-// Se o login falhar, encerra para o servidor (Railway) reiniciar o bot sozinho
+// Inicia o Bot Principal (Akaza)
 client.login(token).catch((err) => {
-  console.error('❌ Falha ao conectar no Discord:', err.message);
+  console.error('❌ Falha ao conectar Bot Principal (Akaza):', err.message);
   process.exit(1);
 });
+
+// Se configurado token secundário separado (Kokushibo), inicia em PARALELO IMEDIATAMENTE
+// sem aguardar carregamento, cargos ou REST do Akaza
+const nemonToken = process.env.NEMON_DISCORD_TOKEN;
+const isDualBot = !!(nemonToken && nemonToken !== token);
+if (isDualBot) {
+  startStandaloneRankingBot(nemonToken);
+}

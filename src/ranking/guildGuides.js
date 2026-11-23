@@ -245,39 +245,7 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
       }
 
       // Atualiza automaticamente todos os cards de eventos abertos que já estavam postados no canal
-      if (msgs) {
-        setImmediate(async () => {
-          try {
-            const { buildEventComponents } = require("./utils/attendanceEmbed");
-            const db = require("./database/db");
-            for (const msg of msgs.values()) {
-              if (msg.author.id !== client.user.id) continue;
-              const firstRow = msg.components?.[0];
-              if (!firstRow) continue;
-              const paButton = firstRow.components?.find(b => (b.customId || b.data?.custom_id)?.startsWith("pa:"));
-              if (paButton) {
-                const btnId = paButton.customId || paButton.data?.custom_id;
-                const eventId = parseInt(btnId.split(":")[1]);
-                const hasLr = firstRow.components?.some(b => (b.customId || b.data?.custom_id)?.startsWith("lr:"));
-                if (!hasLr && !paButton.disabled) {
-                  try {
-                    await msg.edit({
-                      embeds: msg.embeds,
-                      components: buildEventComponents(eventId, true)
-                    });
-                    console.log(`🔄 Botão [Remover Membro] adicionado ao card #${eventId} em ${chPresenca.name}`);
-                    try {
-                      db.updateEventMessage(eventId, msg.id, chPresenca.id);
-                    } catch {}
-                  } catch (e) {
-                    console.warn(`⚠️ Falha ao atualizar card #${eventId}: ${e.message}`);
-                  }
-                }
-              }
-            }
-          } catch {}
-        });
-      }
+      await syncAllOpenCards(client);
     } catch (err) {
       results.push(`⚠️ Erro em ${chPresenca.name}: ${err.message}`);
     }
@@ -359,9 +327,86 @@ function isEventLeader(interaction) {
   }) || false;
 }
 
+/**
+ * Varre o canal de controle de presenças e sincroniza todos os cards de eventos abertos
+ * garantindo que possuam os 3 botões ([Confirmar Presença], [Remover Presença], [Remover Membro])
+ * e auto-recupera dados de eventos e presentes no banco caso tenham sido perdidos no restart.
+ */
+async function syncAllOpenCards(client) {
+  for (const guild of client.guilds.cache.values()) {
+    try {
+      const chPresenca = findChannelByKeywords(guild, ["controle-de-presenca", "presencas", "presenca"]);
+      if (!chPresenca) continue;
+
+      const msgs = await chPresenca.messages.fetch({ limit: 50 }).catch(() => null);
+      if (!msgs) continue;
+
+      const { buildEventComponents } = require("./utils/attendanceEmbed");
+      const db = require("./database/db");
+
+      for (const msg of msgs.values()) {
+        if (msg.author.id !== client.user.id) continue;
+        const firstRow = msg.components?.[0];
+        if (!firstRow) continue;
+        const paButton = firstRow.components?.find(b => (b.customId || b.data?.custom_id)?.startsWith("pa:"));
+        if (!paButton) continue;
+
+        const btnId = paButton.customId || paButton.data?.custom_id;
+        const eventId = parseInt(btnId.split(":")[1]);
+        if (isNaN(eventId)) continue;
+
+        let event = db.getEventById(eventId);
+        if (!event && msg.embeds?.[0]) {
+          const emb = msg.embeds[0];
+          const evName = emb.title ? emb.title.replace(/^[📋🔒]\s*/, "") : `Evento #${eventId}`;
+          const evDesc = emb.description || "";
+          const evCat = emb.fields?.find(f => f.name?.includes("Categoria"))?.value || "Guerra";
+          const evDate = emb.fields?.find(f => f.name?.includes("Data"))?.value || null;
+          db.createEventWithId(eventId, evName, evDesc, "Liderança", evCat, evDate, msg.id, chPresenca.id);
+          event = db.getEventById(eventId);
+
+          const presField = emb.fields?.find(f => f.name?.includes("Presentes"));
+          if (presField?.value && !presField.value.includes("Nenhum")) {
+            const lines = presField.value.split("\n");
+            for (let i = 0; i < lines.length; i++) {
+              const rawLine = lines[i].trim();
+              if (!rawLine || rawLine.startsWith("*…")) continue;
+              const cleanName = rawLine.replace(/^`?\d+\.?`?\s*/, "").trim();
+              if (cleanName && !db.getAttendance(eventId).some(a => a.username === cleanName)) {
+                db.checkIn(eventId, `restored_${eventId}_${i + 1}`, cleanName);
+              }
+            }
+          }
+        } else if (event) {
+          db.updateEventMessage(eventId, msg.id, chPresenca.id);
+        }
+
+        const hasLr = firstRow.components?.some(b => (b.customId || b.data?.custom_id)?.startsWith("lr:"));
+        const isOpen = !paButton.disabled;
+
+        if (!hasLr && isOpen) {
+          try {
+            const embedsToSend = msg.embeds.map(e => EmbedBuilder.from(e));
+            await msg.edit({
+              embeds: embedsToSend,
+              components: buildEventComponents(eventId, true)
+            });
+            console.log(`✅ [Sincronização] Botão [Remover Membro] adicionado ao Card #${eventId} (${event?.name || 'Evento'}) em #${chPresenca.name}`);
+          } catch (err) {
+            console.warn(`⚠️ Erro ao atualizar componentes do Card #${eventId}:`, err.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`⚠️ Erro na sincronização de cards para ${guild.name}:`, err.message);
+    }
+  }
+}
+
 module.exports = {
   isEventLeader,
   setupGuildRooms,
+  syncAllOpenCards,
   createPresencaGuideEmbed,
   createPresencaButtons,
   createAdvertenciasGuideEmbed,

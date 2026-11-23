@@ -108,20 +108,29 @@ async function handleSlash(interaction, commands) {
 
 async function handleSelect(interaction, commands) {
   if (interaction.customId === "select_encerrar_evento") {
+    // Responde instantaneamente (< 30ms) para evitar timeout
+    await interaction.deferUpdate().catch(() => {});
+
     if (!isEventLeader(interaction)) {
-      return interaction.reply({
+      await interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode encerrar eventos.",
-        ephemeral: true,
+        components: [],
+        embeds: [],
       });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
     const eventId = parseInt(interaction.values[0]);
     const event = db.getEventById(eventId);
     if (!event || !event.is_open) {
-      return interaction.update({
+      await interaction.editReply({
         content: "⚠️ Este evento já foi encerrado ou não foi encontrado.",
         components: [],
+        embeds: [],
       });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
     db.closeEvent(eventId);
@@ -141,7 +150,7 @@ async function handleSelect(interaction, commands) {
       }
     }
 
-    await interaction.update({
+    await interaction.editReply({
       content: `🔒 **Evento #${eventId} (${closedEvent.name}) encerrado com sucesso!**\nTotal de presenças registradas: **${attendance.length}**.\n*(Esta mensagem sumirá em 1 minuto)*`,
       components: [],
       embeds: [],
@@ -152,10 +161,13 @@ async function handleSelect(interaction, commands) {
 
   // Consulta detalhada de evento com lista completa de presentes
   if (interaction.customId === "select_ver_evento_detalhes") {
+    // Responde instantaneamente (< 30ms) para evitar timeout
+    await interaction.deferUpdate().catch(() => {});
+
     const eventId = parseInt(interaction.values[0]);
     const event = db.getEventById(eventId);
     if (!event) {
-      await interaction.update({
+      await interaction.editReply({
         content: "❌ Evento não encontrado.",
         components: [],
         embeds: [],
@@ -211,7 +223,7 @@ async function handleSelect(interaction, commands) {
       .setFooter({ text: "Kokushibo • Registro Oficial de Presenças • Sumirá em 1m" })
       .setTimestamp();
 
-    await interaction.update({
+    await interaction.editReply({
       content: null,
       embeds: [embed],
       components: [],
@@ -309,13 +321,29 @@ async function handleSelect(interaction, commands) {
 // ── Botões ────────────────────────────────────────────────────────────────────
 
 async function handleButton(interaction) {
-  // Botões do Guia de Presenças
+  const [action, eventIdStr] = interaction.customId.split(":");
+  const isEventAction = ["pa", "pr", "lr"].includes(action);
+  const isGuideQuery = [
+    "btn_guia_historico",
+    "btn_guia_ranking",
+    "btn_guia_eventos",
+    "btn_encerrar_evento",
+    "btn_historico_eventos"
+  ].includes(interaction.customId);
+
+  // Responde ao Discord IMEDIATAMENTE (< 30ms) para NUNCA dar timeout de 3 segundos
+  if (isEventAction || isGuideQuery) {
+    try {
+      await interaction.deferReply({ ephemeral: true });
+    } catch {}
+  }
+
+  // 1. Botão: Meu Histórico
   if (interaction.customId === "btn_guia_historico") {
     const stats = db.getUserStats(interaction.user.id);
     if (!stats) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "📭 Você ainda não tem nenhuma presença registrada nos eventos.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 60000);
       return;
@@ -337,14 +365,13 @@ async function handleButton(interaction) {
     if (breakdownText) {
       embed.addFields({ name: "Por Categoria", value: breakdownText });
     }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     scheduleAutoDelete(interaction, 60000);
     return;
   }
 
+  // 2. Botão: Ver Ranking
   if (interaction.customId === "btn_guia_ranking") {
-    await interaction.deferReply({ ephemeral: true });
-
     const ranking = db.getRanking(10);
     if (!ranking.length) {
       await interaction.editReply({
@@ -371,16 +398,13 @@ async function handleButton(interaction) {
     scheduleAutoDelete(interaction, 60000);
     return;
   }
-    scheduleAutoDelete(interaction, 60000);
-    return;
-  }
 
+  // 3. Botão: Eventos Abertos
   if (interaction.customId === "btn_guia_eventos") {
     const events = db.getOpenEvents();
     if (!events.length) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "📭 Não há nenhum evento aberto para presenças no momento.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 60000);
       return;
@@ -392,11 +416,12 @@ async function handleButton(interaction) {
       .setDescription(lines.join("\n"))
       .setFooter({ text: "Use /presenca evento_id:<id> ou clique no botão do evento • Sumirá em 1m" })
       .setTimestamp();
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed] });
     scheduleAutoDelete(interaction, 60000);
     return;
   }
 
+  // 4. Botão: Criar Evento (Abre modal - NÃO DEFERE ANTES)
   if (interaction.customId === "btn_criar_evento") {
     if (!isEventLeader(interaction)) {
       await interaction.reply({
@@ -471,11 +496,11 @@ async function handleButton(interaction) {
     return interaction.showModal(modal);
   }
 
+  // 5. Botão: Encerrar Evento
   if (interaction.customId === "btn_encerrar_evento") {
     if (!isEventLeader(interaction)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode encerrar eventos.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 30000);
       return;
@@ -483,9 +508,8 @@ async function handleButton(interaction) {
 
     const openEvents = db.getOpenEvents();
     if (!openEvents.length) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "📭 Não há nenhum evento aberto no momento para encerrar.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 60000);
       return;
@@ -502,21 +526,20 @@ async function handleButton(interaction) {
         }))
       );
 
-    await interaction.reply({
+    await interaction.editReply({
       content: "🔒 **Selecione abaixo o evento que deseja encerrar:**\n*(Esta mensagem sumirá em 1 minuto)*",
       components: [new ActionRowBuilder().addComponents(select)],
-      ephemeral: true,
     });
     scheduleAutoDelete(interaction, 60000);
     return;
   }
 
+  // 6. Botão: Histórico de Eventos
   if (interaction.customId === "btn_historico_eventos") {
     const allEvents = db.getAllEvents();
     if (!allEvents.length) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "📭 Nenhum evento foi criado ainda no servidor.",
-        ephemeral: true,
       });
       scheduleAutoDelete(interaction, 60000);
       return;
@@ -533,16 +556,14 @@ async function handleButton(interaction) {
         }))
       );
 
-    await interaction.reply({
+    await interaction.editReply({
       content: "📜 **Histórico de Eventos do Servidor:**\nSelecione um evento abaixo para visualizar a lista completa de membros presentes:\n*(Esta mensagem sumirá em 1 minuto)*",
       components: [new ActionRowBuilder().addComponents(select)],
-      ephemeral: true,
     });
     scheduleAutoDelete(interaction, 60000);
     return;
   }
 
-  const [action, eventIdStr] = interaction.customId.split(":");
   const eventId = parseInt(eventIdStr);
   if (isNaN(eventId)) return;
 
@@ -555,7 +576,7 @@ async function handleButton(interaction) {
 
   let event = db.getEventById(eventId);
   if (!event) {
-    // Tenta restaurar dados do evento a partir do embed da mensagem se o banco foi recriado
+    // Tenta restaurar dados do evento e presentes a partir do embed da mensagem se o banco foi recriado
     if (interaction.message?.embeds?.[0]) {
       const emb = interaction.message.embeds[0];
       const evName = emb.title ? emb.title.replace(/^[📋🔒]\s*/, "") : `Evento #${eventId}`;
@@ -564,23 +585,41 @@ async function handleButton(interaction) {
       const evDate = emb.fields?.find(f => f.name?.includes("Data"))?.value || null;
       db.createEventWithId(eventId, evName, evDesc, "Liderança", evCat, evDate, interaction.message.id, interaction.channelId);
       event = db.getEventById(eventId);
+
+      const presField = emb.fields?.find(f => f.name?.includes("Presentes"));
+      if (presField?.value && !presField.value.includes("Nenhum")) {
+        const lines = presField.value.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+          const rawLine = lines[i].trim();
+          if (!rawLine || rawLine.startsWith("*…")) continue;
+          const cleanName = rawLine.replace(/^`?\d+\.?`?\s*/, "").trim();
+          if (cleanName && !db.getAttendance(eventId).some(a => a.username === cleanName)) {
+            db.checkIn(eventId, `restored_${eventId}_${i + 1}`, cleanName);
+          }
+        }
+      }
     }
   }
 
   if (!event) {
-    await interaction.reply({ content: "❌ Evento não encontrado.", ephemeral: true });
+    await interaction.editReply({ content: "❌ Evento não encontrado." });
     scheduleAutoDelete(interaction, 30000);
     return;
   }
   if (!event.is_open) {
-    await interaction.reply({ content: "🔒 Este evento já está encerrado.", ephemeral: true });
+    await interaction.editReply({ content: "🔒 Este evento já está encerrado." });
     scheduleAutoDelete(interaction, 30000);
     return;
   }
 
   if (action === "pa") {
-    // Responde ao Discord imediatamente (< 50ms) para NUNCA dar timeout de 3 segundos
-    await interaction.deferReply({ ephemeral: true });
+    const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+
+    // Se existia entrada restaurada com o mesmo nome de exibição, remove para substituir pelo ID real
+    const existingRestored = db.getAttendance(eventId).find(a => a.username === displayName && a.user_id.startsWith("restored_"));
+    if (existingRestored) {
+      db.checkOut(eventId, existingRestored.user_id);
+    }
 
     if (db.hasCheckedIn(eventId, interaction.user.id)) {
       await interaction.editReply({ content: `⚠️ Você já confirmou presença em **${event.name}**.` });
@@ -588,7 +627,6 @@ async function handleButton(interaction) {
       return;
     }
 
-    const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
     db.checkIn(eventId, interaction.user.id, displayName);
 
     await interaction.editReply({ content: `✅ Presença confirmada em **${event.name}**! *(Esta mensagem sumirá em 1m)*` });
@@ -602,16 +640,17 @@ async function handleButton(interaction) {
   }
 
   if (action === "pr") {
-    // Responde ao Discord imediatamente (< 50ms) para NUNCA dar timeout de 3 segundos
-    await interaction.deferReply({ ephemeral: true });
+    const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    const attendance = db.getAttendance(eventId);
+    const userEntry = attendance.find(a => a.user_id === interaction.user.id || a.username === displayName);
 
-    if (!db.hasCheckedIn(eventId, interaction.user.id)) {
+    if (!userEntry) {
       await interaction.editReply({ content: `⚠️ Você não está registrado em **${event.name}**.` });
       scheduleAutoDelete(interaction, 60000);
       return;
     }
 
-    db.checkOut(eventId, interaction.user.id);
+    db.checkOut(eventId, userEntry.user_id);
 
     await interaction.editReply({ content: `✅ Presença removida de **${event.name}**. *(Esta mensagem sumirá em 1m)*` });
     scheduleAutoDelete(interaction, 60000);
@@ -625,9 +664,6 @@ async function handleButton(interaction) {
 
   // Liderança removendo membro da lista de presença
   if (action === "lr") {
-    // Responde instantaneamente (< 50ms) ao Discord para evitar erro de tempo limite
-    await interaction.deferReply({ ephemeral: true });
-
     if (!isEventLeader(interaction)) {
       await interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
