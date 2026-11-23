@@ -1356,7 +1356,13 @@ module.exports = {
         return;
       }
       if (interaction.isChatInputCommand()) return handleSlash(interaction, commands);
-      if (interaction.isAnySelectMenu()) return handleSelect(interaction, commands);
+      if (
+        interaction.isStringSelectMenu() ||
+        interaction.isUserSelectMenu() ||
+        interaction.isRoleSelectMenu() ||
+        interaction.isMentionableSelectMenu() ||
+        interaction.isChannelSelectMenu()
+      ) return handleSelect(interaction, commands);
       if (interaction.isButton()) return handleButton(interaction);
       if (interaction.isModalSubmit()) return handleModal(interaction);
     } catch (err) {
