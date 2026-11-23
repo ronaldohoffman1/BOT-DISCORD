@@ -254,13 +254,15 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
               if (msg.author.id !== client.user.id) continue;
               const firstRow = msg.components?.[0];
               if (!firstRow) continue;
-              const paButton = firstRow.components?.find(b => b.customId?.startsWith("pa:"));
+              const paButton = firstRow.components?.find(b => (b.customId || b.data?.custom_id)?.startsWith("pa:"));
               if (paButton) {
-                const eventId = parseInt(paButton.customId.split(":")[1]);
-                const hasLr = firstRow.components?.some(b => b.customId?.startsWith("lr:"));
+                const btnId = paButton.customId || paButton.data?.custom_id;
+                const eventId = parseInt(btnId.split(":")[1]);
+                const hasLr = firstRow.components?.some(b => (b.customId || b.data?.custom_id)?.startsWith("lr:"));
                 if (!hasLr && !paButton.disabled) {
                   try {
                     await msg.edit({
+                      embeds: msg.embeds,
                       components: buildEventComponents(eventId, true)
                     });
                     console.log(`🔄 Botão [Remover Membro] adicionado ao card #${eventId} em ${chPresenca.name}`);

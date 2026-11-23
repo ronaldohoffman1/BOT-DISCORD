@@ -460,7 +460,11 @@ async function ensureLegionRoles(guild) {
       });
       created.push(role.name);
     } else {
-      await role.edit({ color: def.color, hoist: true, permissions });
+      try {
+        await role.edit({ color: def.color, hoist: true, permissions });
+      } catch (err) {
+        console.warn(`Não foi possível editar cargo ${def.name}:`, err.message);
+      }
     }
     roles.push(role);
   }
@@ -471,12 +475,18 @@ async function ensureLegionRoles(guild) {
   const gods = (config.staffRoles || []).map(n => guild.roles.cache.find(r => r.name === n)).find(Boolean);
   let above = gods && gods.position < me.roles.highest.position ? gods : me.roles.highest;
   for (const role of roles) {
-    await guild.roles.fetch();
-    const current = guild.roles.cache.get(role.id);
-    const anchor = guild.roles.cache.get(above.id);
-    const target = current.position < anchor.position ? anchor.position - 1 : anchor.position;
-    if (current.position !== target) await current.setPosition(target);
-    above = current;
+    try {
+      await guild.roles.fetch();
+      const current = guild.roles.cache.get(role.id);
+      const anchor = guild.roles.cache.get(above.id);
+      if (current && anchor) {
+        const target = current.position < anchor.position ? anchor.position - 1 : anchor.position;
+        if (current.position !== target) await current.setPosition(target);
+        above = current;
+      }
+    } catch (err) {
+      console.warn(`Não foi possível posicionar cargo ${role.name}:`, err.message);
+    }
   }
   return { created, roles };
 }

@@ -546,7 +546,27 @@ async function handleButton(interaction) {
   const eventId = parseInt(eventIdStr);
   if (isNaN(eventId)) return;
 
-  const event = db.getEventById(eventId);
+  // Garante que message_id e channel_id fiquem sempre registrados no banco
+  if (interaction.message?.id && interaction.channelId) {
+    try {
+      db.updateEventMessage(eventId, interaction.message.id, interaction.channelId);
+    } catch {}
+  }
+
+  let event = db.getEventById(eventId);
+  if (!event) {
+    // Tenta restaurar dados do evento a partir do embed da mensagem se o banco foi recriado
+    if (interaction.message?.embeds?.[0]) {
+      const emb = interaction.message.embeds[0];
+      const evName = emb.title ? emb.title.replace(/^[📋🔒]\s*/, "") : `Evento #${eventId}`;
+      const evDesc = emb.description || "";
+      const evCat = emb.fields?.find(f => f.name?.includes("Categoria"))?.value || "Guerra";
+      const evDate = emb.fields?.find(f => f.name?.includes("Data"))?.value || null;
+      db.createEventWithId(eventId, evName, evDesc, "Liderança", evCat, evDate, interaction.message.id, interaction.channelId);
+      event = db.getEventById(eventId);
+    }
+  }
+
   if (!event) {
     await interaction.reply({ content: "❌ Evento não encontrado.", ephemeral: true });
     scheduleAutoDelete(interaction, 30000);
@@ -559,29 +579,47 @@ async function handleButton(interaction) {
   }
 
   if (action === "pa") {
+    // Responde ao Discord imediatamente (< 50ms) para NUNCA dar timeout de 3 segundos
+    await interaction.deferReply({ ephemeral: true });
+
     if (db.hasCheckedIn(eventId, interaction.user.id)) {
-      await interaction.reply({ content: `⚠️ Você já confirmou presença em **${event.name}**.`, ephemeral: true });
+      await interaction.editReply({ content: `⚠️ Você já confirmou presença em **${event.name}**.` });
       scheduleAutoDelete(interaction, 60000);
       return;
     }
+
     const displayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
     db.checkIn(eventId, interaction.user.id, displayName);
-    await refreshMessage(interaction, db.getEventById(eventId));
-    const rep = await interaction.followUp({ content: `✅ Presença confirmada em **${event.name}**! *(Esta mensagem sumirá em 1m)*`, ephemeral: true });
-    scheduleAutoDeleteMessage(rep, 60000);
+
+    await interaction.editReply({ content: `✅ Presença confirmada em **${event.name}**! *(Esta mensagem sumirá em 1m)*` });
+    scheduleAutoDelete(interaction, 60000);
+
+    // Atualiza o embed público no canal em background
+    updateEmbedFromDB(interaction.client, eventId).catch(err => {
+      console.warn(`Erro ao atualizar card público do evento #${eventId}:`, err.message);
+    });
     return;
   }
 
   if (action === "pr") {
+    // Responde ao Discord imediatamente (< 50ms) para NUNCA dar timeout de 3 segundos
+    await interaction.deferReply({ ephemeral: true });
+
     if (!db.hasCheckedIn(eventId, interaction.user.id)) {
-      await interaction.reply({ content: `⚠️ Você não está registrado em **${event.name}**.`, ephemeral: true });
+      await interaction.editReply({ content: `⚠️ Você não está registrado em **${event.name}**.` });
       scheduleAutoDelete(interaction, 60000);
       return;
     }
+
     db.checkOut(eventId, interaction.user.id);
-    await refreshMessage(interaction, db.getEventById(eventId));
-    const rep = await interaction.followUp({ content: `✅ Presença removida de **${event.name}**. *(Esta mensagem sumirá em 1m)*`, ephemeral: true });
-    scheduleAutoDeleteMessage(rep, 60000);
+
+    await interaction.editReply({ content: `✅ Presença removida de **${event.name}**. *(Esta mensagem sumirá em 1m)*` });
+    scheduleAutoDelete(interaction, 60000);
+
+    // Atualiza o embed público no canal em background
+    updateEmbedFromDB(interaction.client, eventId).catch(err => {
+      console.warn(`Erro ao atualizar card público do evento #${eventId}:`, err.message);
+    });
     return;
   }
 
@@ -865,6 +903,18 @@ module.exports = {
       if (interaction.isModalSubmit()) return handleModal(interaction);
     } catch (err) {
       console.error("Erro não tratado em interactionCreate:", err);
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: `⚠️ Ocorreu um erro ao processar esta ação: ${err.message}`,
+            ephemeral: true,
+          });
+        } else if (interaction.deferred) {
+          await interaction.editReply({
+            content: `⚠️ Ocorreu um erro ao processar esta ação: ${err.message}`,
+          });
+        }
+      } catch {}
     }
   },
 };

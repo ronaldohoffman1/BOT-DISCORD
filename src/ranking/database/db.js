@@ -63,6 +63,14 @@ function createEvent(name, description, createdBy, category, startAt = null) {
     .run(name, description || "", createdBy, category, startAt);
 }
 
+function createEventWithId(id, name, description, createdBy, category, startAt = null, messageId = null, channelId = null) {
+  return db
+    .prepare(
+      "INSERT OR REPLACE INTO events (id, name, description, created_by, category, start_at, message_id, channel_id, is_open) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+    )
+    .run(id, name, description || "", createdBy, category, startAt, messageId, channelId);
+}
+
 function getOpenEventByName(name) {
   return db
     .prepare("SELECT * FROM events WHERE is_open = 1 AND name = ? COLLATE NOCASE")
@@ -253,6 +261,7 @@ module.exports = {
   getCategoryNames,
   // eventos
   createEvent,
+  createEventWithId,
   getOpenEventByName,
   closeEvent,
   getOpenEvents,
