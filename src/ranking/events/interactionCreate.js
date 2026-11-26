@@ -1297,17 +1297,17 @@ async function handleButton(interaction) {
 
   // ── Botão: Listar Advertidos (painel fixo) ──
   if (interaction.customId === "btn_listar_advertencias") {
-    await interaction.deferReply({ ephemeral: true });
-
     const {
       ensureWarningRoles,
       getMemberWarningLevel,
     } = require("../../warningManager");
 
-    await ensureWarningRoles(interaction.guild);
-    await interaction.guild.members.fetch();
-    const warned = [];
+    await ensureWarningRoles(interaction.guild).catch(() => {});
+    if (interaction.guild.members.cache.size <= 2) {
+      await interaction.guild.members.fetch().catch(() => {});
+    }
 
+    const warned = [];
     for (const member of interaction.guild.members.cache.values()) {
       if (member.user.bot) continue;
       const lvl = getMemberWarningLevel(member);
@@ -1325,7 +1325,7 @@ async function handleButton(interaction) {
     warned.sort((a, b) => b.lvl - a.lvl);
     const lines = warned.map((item, idx) => {
       const icon = item.lvl === 3 ? "🚨" : "⚠️";
-      return `\`${String(idx + 1).padStart(2, "0")}.\` ${icon} **${item.member.displayName}** (<@${item.member.id}>) — **${item.lvl}/3**`;
+      return `\`${String(idx + 1).padStart(2, "0")}.\` ${icon} **${item.member.displayName}** — **${item.lvl}/3**`;
     });
 
     const embed = new EmbedBuilder()
