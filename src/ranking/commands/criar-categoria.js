@@ -7,6 +7,7 @@ const {
   ButtonBuilder,
   ButtonStyle
 } = require("discord.js");
+const { createConvocacaoPainel } = require("../guildGuides");
 
 function normalize(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -126,7 +127,7 @@ module.exports = {
         results.push(`ℹ️ Categoria **${newCat.name}** já existe, usando ela.`);
       }
 
-      // 3. Criar canal CONVOCAÇÃO EVENTO PVP (se não existir)
+      // 3. Criar canal CONVOCAÇÃO EVENTO PVP (se não existir) e postar painel
       let chPvp = findChannelByKeywords(guild, ["convocacao-pvp", "convocacao pvp", "evento-pvp"]);
       if (!chPvp) {
         chPvp = await guild.channels.create({
@@ -140,8 +141,19 @@ module.exports = {
         await chPvp.setParent(newCat.id, { lockPermissions: false });
         results.push(`📂 Canal **${chPvp.name}** movido para a nova categoria!`);
       }
+      {
+        const msgs = await chPvp.messages.fetch({ limit: 20 }).catch(() => null);
+        const existing = msgs?.find(m => m.author.id === client.user.id && m.embeds.some(e => e.title?.includes("CONVOCAÇÃO DE EVENTOS PvP")));
+        const { embed, components } = createConvocacaoPainel("pvp");
+        if (existing) {
+          await existing.edit({ embeds: [embed], components });
+        } else {
+          await chPvp.send({ embeds: [embed], components });
+        }
+        results.push(`📢 Painel PvP configurado em **${chPvp.name}**!`);
+      }
 
-      // 4. Criar canal CONVOCAÇÃO EVENTO PVE (se não existir)
+      // 4. Criar canal CONVOCAÇÃO EVENTO PVE (se não existir) e postar painel
       let chPve = findChannelByKeywords(guild, ["convocacao-pve", "convocacao pve", "evento-pve"]);
       if (!chPve) {
         chPve = await guild.channels.create({
@@ -154,6 +166,17 @@ module.exports = {
       } else {
         await chPve.setParent(newCat.id, { lockPermissions: false });
         results.push(`📂 Canal **${chPve.name}** movido para a nova categoria!`);
+      }
+      {
+        const msgs = await chPve.messages.fetch({ limit: 20 }).catch(() => null);
+        const existing = msgs?.find(m => m.author.id === client.user.id && m.embeds.some(e => e.title?.includes("CONVOCAÇÃO DE EVENTOS PvE")));
+        const { embed, components } = createConvocacaoPainel("pve");
+        if (existing) {
+          await existing.edit({ embeds: [embed], components });
+        } else {
+          await chPve.send({ embeds: [embed], components });
+        }
+        results.push(`⚔️ Painel PvE configurado em **${chPve.name}**!`);
       }
 
       // 5. Mover canal CONTROLE DE PRESENÇA

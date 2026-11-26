@@ -322,8 +322,11 @@ async function handleSelect(interaction, commands) {
     const embed = buildLudraEmbed(event, [], interaction.guild);
     const components = buildLudraComponents(eventId, true, []);
 
-    let targetChannel = interaction.guild ? findChannelByKeywords(interaction.guild, ["controle-de-presenca", "presenca"]) : null;
-    if (!targetChannel) targetChannel = interaction.channel;
+    let targetChannel = interaction.channel;
+    const currentName = interaction.channel?.name?.toLowerCase() || "";
+    if (!currentName.includes("convocacao") && !currentName.includes("convocação") && !currentName.includes("presenca") && !currentName.includes("presença")) {
+      targetChannel = (interaction.guild ? findChannelByKeywords(interaction.guild, ["convocacao-pve", "controle-de-presenca", "presenca"]) : null) || interaction.channel;
+    }
 
     const msg = await targetChannel.send({ embeds: [embed], components });
     db.updateEventMessage(eventId, msg.id, targetChannel.id);
@@ -506,6 +509,8 @@ async function handleButton(interaction) {
   const [action, eventIdStr] = interaction.customId.split(":");
   const isModalOpener =
     interaction.customId === "btn_criar_evento" ||
+    interaction.customId === "btn_criar_evento_pvp" ||
+    interaction.customId === "btn_criar_evento_pve" ||
     interaction.customId === "btn_ludra_manual_horario" ||
     interaction.customId === "btn_advertir_membro" ||
     interaction.customId.startsWith("btn_ludra_preencher_lote:") ||
@@ -618,8 +623,12 @@ async function handleButton(interaction) {
     return;
   }
 
-  // 4. Botão: Criar Evento (Abre modal - NÃO DEFERE ANTES)
-  if (interaction.customId === "btn_criar_evento") {
+  // 4. Botão: Criar Evento (Geral, PvP ou PvE — Abre modal sem deferir antes)
+  if (
+    interaction.customId === "btn_criar_evento" ||
+    interaction.customId === "btn_criar_evento_pvp" ||
+    interaction.customId === "btn_criar_evento_pve"
+  ) {
     if (!isEventLeader(interaction)) {
       await interaction.reply({
         content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode criar eventos.",
@@ -628,6 +637,20 @@ async function handleButton(interaction) {
       scheduleAutoDelete(interaction, 30000);
       return;
     }
+
+    const isPvp = interaction.customId === "btn_criar_evento_pvp";
+    const isPve = interaction.customId === "btn_criar_evento_pve";
+    const defaultCategory = isPvp ? "PvP" : isPve ? "PvE" : "Guerra";
+    const modalTitle = isPvp
+      ? "📢 Criar Evento PvP"
+      : isPve
+        ? "⚔️ Criar Evento PvE"
+        : "➕ Criar Novo Evento";
+    const namePlaceholder = isPvp
+      ? "Ex: Guerra x Triniel ou Cerco"
+      : isPve
+        ? "Ex: Boss Mundial ou Dungeon"
+        : "Ex: Guerra do Abismo ou Raid Ludra";
 
     const now = new Date();
     // Horário de Brasília (UTC-3)
@@ -639,13 +662,13 @@ async function handleButton(interaction) {
 
     const modal = new ModalBuilder()
       .setCustomId("modal_criar_evento_rapido")
-      .setTitle("➕ Criar Novo Evento");
+      .setTitle(modalTitle);
 
     const inputNome = new TextInputBuilder()
       .setCustomId("evento_nome")
       .setLabel("Nome do Evento")
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder("Ex: Guerra do Abismo ou Raid Ludra")
+      .setPlaceholder(namePlaceholder)
       .setRequired(true)
       .setMaxLength(100);
 
@@ -653,8 +676,8 @@ async function handleButton(interaction) {
       .setCustomId("evento_categoria")
       .setLabel("Categoria")
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder("Ex: Guerra, Ludra, Treino, PvP")
-      .setValue("Guerra")
+      .setPlaceholder("Ex: Guerra, Ludra, Treino, PvP, PvE")
+      .setValue(defaultCategory)
       .setRequired(true)
       .setMaxLength(50);
 
@@ -1674,8 +1697,11 @@ async function handleModal(interaction) {
     const embed = buildLudraEmbed(event, [], interaction.guild);
     const components = buildLudraComponents(eventId, true, []);
 
-    let targetChannel = interaction.guild ? findChannelByKeywords(interaction.guild, ["controle-de-presenca", "presenca"]) : null;
-    if (!targetChannel) targetChannel = interaction.channel;
+    let targetChannel = interaction.channel;
+    const currentName = interaction.channel?.name?.toLowerCase() || "";
+    if (!currentName.includes("convocacao") && !currentName.includes("convocação") && !currentName.includes("presenca") && !currentName.includes("presença")) {
+      targetChannel = (interaction.guild ? findChannelByKeywords(interaction.guild, ["convocacao-pve", "controle-de-presenca", "presenca"]) : null) || interaction.channel;
+    }
 
     const msg = await targetChannel.send({ embeds: [embed], components });
     db.updateEventMessage(eventId, msg.id, targetChannel.id);

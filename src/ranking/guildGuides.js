@@ -117,6 +117,66 @@ function createPresencaButtons() {
 }
 
 /**
+ * Painéis fixos das salas de Convocação PvP e PvE
+ */
+function createConvocacaoPainel(tipo) {
+  const isPvp = tipo === "pvp";
+  const embed = new EmbedBuilder()
+    .setColor(isPvp ? CRIMSON : GOLD)
+    .setTitle(
+      isPvp
+        ? "📢 CONVOCAÇÃO DE EVENTOS PvP — FIGHT KINGS"
+        : "⚔️ CONVOCAÇÃO DE EVENTOS PvE — FIGHT KINGS"
+    )
+    .setDescription(
+      isPvp
+        ? "Sala oficial de convocação para **Guerras, Cerco, GvG e atividades PvP** da legião **Fight Kings**.\n\n" +
+          "👑 **Liderança:** Clique no botão abaixo para abrir um novo card de evento sem precisar digitar comandos.\n" +
+          "⚔️ **Membros:** Quando um evento for publicado, clique em **`✅ Confirmar Presença`** (seu **nick atual do Discord** será registrado na lista)."
+        : "Sala oficial de convocação para **Raids, Ludra, Bosses e atividades PvE** da legião **Fight Kings**.\n\n" +
+          "👑 **Liderança:** Clique nos botões abaixo para abrir um evento PvE ou uma Raid Ludra sem precisar digitar comandos.\n" +
+          "⚔️ **Membros:** Quando um evento for publicado, clique em **`✅ Confirmar Presença`** (seu **nick atual do Discord** será registrado na lista)."
+    )
+    .addFields({
+      name: "🛡️ Regras da Lista de Presença",
+      value:
+        "• Para confirmar ou sair por conta própria, use os botões **`✅ Confirmar Presença`** e **`❌ Remover Presença`**.\n" +
+        "• Apenas **Comandantes, Sub Comandantes e Oficiais** podem usar **`🗑️ Remover Membro`** para tirar alguém da lista.",
+    })
+    .setFooter({ text: "Kokushibo • Convocação Oficial • Fight Kings" })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(isPvp ? "btn_criar_evento_pvp" : "btn_criar_evento_pve")
+      .setLabel(isPvp ? "➕ Criar Evento PvP" : "➕ Criar Evento PvE")
+      .setStyle(ButtonStyle.Success)
+  );
+
+  if (!isPvp) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId("btn_criar_ludra")
+        .setLabel("🐉 Criar Raid Ludra")
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId("btn_encerrar_evento")
+      .setLabel("🔒 Encerrar Evento")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("btn_historico_eventos")
+      .setLabel("📜 Histórico")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embed, components: [row] };
+}
+
+/**
  * 2. Painel de Sistema de Advertências e Regras
  */
 function createAdvertenciasGuideEmbed() {
@@ -300,6 +360,35 @@ async function setupGuildRooms(guild, client, forceRefresh = false) {
     }
   }
 
+  // 4. Salas de Convocação PvP e PvE
+  const convocacoes = [
+    { tipo: "pvp", keywords: ["convocacao-pvp", "convocação-pvp", "evento-pvp"], titleMatch: "CONVOCAÇÃO DE EVENTOS PvP" },
+    { tipo: "pve", keywords: ["convocacao-pve", "convocação-pve", "evento-pve"], titleMatch: "CONVOCAÇÃO DE EVENTOS PvE" },
+  ];
+
+  for (const conv of convocacoes) {
+    const ch = findChannelByKeywords(guild, conv.keywords);
+    if (!ch) continue;
+    try {
+      const msgs = await ch.messages.fetch({ limit: 20 }).catch(() => null);
+      const existing = msgs
+        ? msgs.find(m => m.author.id === client.user.id && m.embeds.some(e => e.title?.includes(conv.titleMatch)))
+        : null;
+
+      const { embed, components } = createConvocacaoPainel(conv.tipo);
+      if (existing && !forceRefresh) {
+        await existing.edit({ embeds: [embed], components });
+        results.push(`✅ Painel atualizado em ${ch.name}`);
+      } else {
+        if (existing && forceRefresh) await existing.delete().catch(() => {});
+        await ch.send({ embeds: [embed], components });
+        results.push(`✨ Painel enviado em ${ch.name}`);
+      }
+    } catch (err) {
+      results.push(`⚠️ Erro em ${ch.name}: ${err.message}`);
+    }
+  }
+
   return results;
 }
 
@@ -437,6 +526,7 @@ module.exports = {
   findChannelByKeywords,
   createPresencaGuideEmbed,
   createPresencaButtons,
+  createConvocacaoPainel,
   createAdvertenciasGuideEmbed,
   createHierarquiaGuideEmbed
 };
