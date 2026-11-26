@@ -333,6 +333,27 @@ function isEventLeader(interaction) {
 }
 
 /**
+ * Verifica se o membro pode remover alguém da lista de presença
+ * (apenas Comandante, Sub Comandante e Oficial)
+ */
+function canRemoveAttendance(interaction) {
+  const member = interaction.member;
+  if (!member) return false;
+
+  const allowedKeywords = [
+    "comandante",
+    "sub comandante",
+    "sub-comandante",
+    "oficial",
+  ];
+
+  return member.roles?.cache?.some((r) => {
+    const roleName = r.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return allowedKeywords.some(keyword => roleName.includes(keyword));
+  }) || false;
+}
+
+/**
  * Varre o canal de controle de presenças e sincroniza todos os cards de eventos abertos
  * garantindo que possuam os 3 botões ([Confirmar Presença], [Remover Presença], [Remover Membro])
  * e auto-recupera dados de eventos e presentes no banco caso tenham sido perdidos no restart.
@@ -410,6 +431,7 @@ async function syncAllOpenCards(client) {
 
 module.exports = {
   isEventLeader,
+  canRemoveAttendance,
   setupGuildRooms,
   syncAllOpenCards,
   findChannelByKeywords,

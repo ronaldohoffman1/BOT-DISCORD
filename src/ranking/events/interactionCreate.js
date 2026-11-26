@@ -15,7 +15,7 @@ const {
   buildLudraEmbed,
   buildLudraComponents,
 } = require("../utils/attendanceEmbed");
-const { isEventLeader, findChannelByKeywords } = require("../guildGuides");
+const { isEventLeader, canRemoveAttendance, findChannelByKeywords } = require("../guildGuides");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -207,7 +207,7 @@ async function handleSelect(interaction, commands) {
         .map((a, i) => {
           const member = interaction.guild?.members?.cache?.get(a.user_id);
           const name = member?.displayName || a.username;
-          return `\`${String(i + 1).padStart(2, "0")}.\` **${name}** (<@${a.user_id}>) — *${a.checked_in_at}*`;
+          return `\`${String(i + 1).padStart(2, "0")}.\` **${name}** — *${a.checked_in_at}*`;
         })
         .join("\n");
       if (listText.length > 3800) {
@@ -243,9 +243,9 @@ async function handleSelect(interaction, commands) {
     // Responde instantaneamente para o Discord não dar timeout
     await interaction.deferUpdate();
 
-    if (!isEventLeader(interaction)) {
+    if (!canRemoveAttendance(interaction)) {
       await interaction.editReply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
+        content: "❌ **Acesso Negado**: Apenas **Comandantes, Sub Comandantes e Oficiais** podem remover membros da lista de presença.",
         components: [],
         embeds: [],
       });
@@ -507,6 +507,7 @@ async function handleButton(interaction) {
   const isModalOpener =
     interaction.customId === "btn_criar_evento" ||
     interaction.customId === "btn_ludra_manual_horario" ||
+    interaction.customId === "btn_advertir_membro" ||
     interaction.customId.startsWith("btn_ludra_preencher_lote:") ||
     ["aa", "ar"].includes(action);
 
@@ -524,6 +525,7 @@ async function handleButton(interaction) {
     "btn_encerrar_evento",
     "btn_historico_eventos",
     "btn_criar_ludra",
+    "btn_listar_advertencias",
   ].includes(interaction.customId);
 
   // Responde ao Discord IMEDIATAMENTE (< 30ms) para NUNCA dar timeout de 3 segundos
@@ -1113,9 +1115,9 @@ async function handleButton(interaction) {
 
   // ── Botão: Remover Membro da Raid Ludra (lr_remove:eventId) ──
   if (action === "lr_remove") {
-    if (!isEventLeader(interaction)) {
+    if (!canRemoveAttendance(interaction)) {
       await interaction.editReply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros.",
+        content: "❌ **Acesso Negado**: Apenas **Comandantes, Sub Comandantes e Oficiais** podem remover membros.",
       });
       scheduleAutoDelete(interaction, 30000);
       return;
@@ -1163,6 +1165,98 @@ async function handleButton(interaction) {
       content: `🗑️ **Remover Membro da Raid Ludra:**\nSelecione abaixo quem você deseja remover da lista:\n*(Esta mensagem sumirá em 1 minuto)*`,
       components: [new ActionRowBuilder().addComponents(select)],
     });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
+  // ── Botão: Aplicar Advertência (painel fixo no canal de advertências) ──
+  if (interaction.customId === "btn_advertir_membro") {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança pode aplicar advertências.",
+        ephemeral: true,
+      });
+    }
+
+    const modal = new ModalBuilder()
+      .setCustomId("modal_aplicar_advertencia")
+      .setTitle("⚠️ Aplicar Advertência");
+
+    const inputMembro = new TextInputBuilder()
+      .setCustomId("adv_membro")
+      .setLabel("@Mencione ou cole o ID do membro")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("Ex: @Kokushibo ou 123456789012345678")
+      .setRequired(true)
+      .setMaxLength(100);
+
+    const inputMotivo = new TextInputBuilder()
+      .setCustomId("adv_motivo")
+      .setLabel("Motivo da Advertência")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Ex: Faltou na guerra sem aviso prévio.")
+      .setRequired(true)
+      .setMaxLength(300);
+
+    const inputDias = new TextInputBuilder()
+      .setCustomId("adv_dias")
+      .setLabel("Duração em dias (padrão: 14)")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("14")
+      .setValue("14")
+      .setRequired(false)
+      .setMaxLength(3);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(inputMembro),
+      new ActionRowBuilder().addComponents(inputMotivo),
+      new ActionRowBuilder().addComponents(inputDias)
+    );
+
+    return interaction.showModal(modal);
+  }
+
+  // ── Botão: Listar Advertidos (painel fixo) ──
+  if (interaction.customId === "btn_listar_advertencias") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const {
+      ensureWarningRoles,
+      getMemberWarningLevel,
+    } = require("../../warningManager");
+
+    await ensureWarningRoles(interaction.guild);
+    await interaction.guild.members.fetch();
+    const warned = [];
+
+    for (const member of interaction.guild.members.cache.values()) {
+      if (member.user.bot) continue;
+      const lvl = getMemberWarningLevel(member);
+      if (lvl > 0) warned.push({ member, lvl });
+    }
+
+    if (!warned.length) {
+      await interaction.editReply({
+        content: "🎉 **Ficha Limpa Geral!** Nenhum membro possui advertências ativas no momento.",
+      });
+      scheduleAutoDelete(interaction, 60000);
+      return;
+    }
+
+    warned.sort((a, b) => b.lvl - a.lvl);
+    const lines = warned.map((item, idx) => {
+      const icon = item.lvl === 3 ? "🚨" : "⚠️";
+      return `\`${String(idx + 1).padStart(2, "0")}.\` ${icon} **${item.member.displayName}** (<@${item.member.id}>) — **${item.lvl}/3**`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0xe67e22)
+      .setTitle(`📋 Membros com Advertências Ativas (${warned.length})`)
+      .setDescription(lines.join("\n"))
+      .setFooter({ text: "Kokushibo • Sistema de Advertências • Sumirá em 1m" })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
     scheduleAutoDelete(interaction, 60000);
     return;
   }
@@ -1267,9 +1361,9 @@ async function handleButton(interaction) {
 
   // Liderança removendo membro da lista de presença
   if (action === "lr") {
-    if (!isEventLeader(interaction)) {
+    if (!canRemoveAttendance(interaction)) {
       await interaction.editReply({
-        content: "❌ **Acesso Negado**: Apenas a liderança (**Administrador, Comandante, Sub Comandante ou Oficial de Elite**) pode remover membros da lista.",
+        content: "❌ **Acesso Negado**: Apenas **Comandantes, Sub Comandantes e Oficiais** podem remover membros da lista de presença.",
       });
       scheduleAutoDelete(interaction, 30000);
       return;
@@ -1351,6 +1445,134 @@ async function handleButton(interaction) {
 // ── Modais ────────────────────────────────────────────────────────────────────
 
 async function handleModal(interaction) {
+  // ── Modal: Aplicar Advertência (via botão do painel de advertências) ──
+  if (interaction.customId === "modal_aplicar_advertencia") {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança pode aplicar advertências.",
+        ephemeral: true,
+      });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const {
+      ensureWarningRoles,
+      getMemberWarningLevel,
+      setMemberWarningLevel,
+      logWarningToChannel,
+    } = require("../../warningManager");
+
+    await ensureWarningRoles(interaction.guild);
+
+    const rawMembro = interaction.fields.getTextInputValue("adv_membro").trim();
+    const motivo = interaction.fields.getTextInputValue("adv_motivo").trim();
+    const diasRaw = interaction.fields.getTextInputValue("adv_dias").trim();
+    const dias = parseInt(diasRaw) > 0 ? parseInt(diasRaw) : 14;
+
+    // Extrai o ID do usuário da menção ou texto puro
+    const mentionMatch = rawMembro.match(/<@!?(\d{17,20})>/);
+    const rawIdMatch = rawMembro.match(/\b(\d{17,20})\b/);
+    const userId = mentionMatch?.[1] || rawIdMatch?.[1] || null;
+
+    if (!userId) {
+      await interaction.editReply({
+        content: "❌ Membro inválido. Use @mencione o membro ou cole o ID numérico dele.",
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const member = await interaction.guild.members.fetch(userId).catch(() => null);
+    if (!member) {
+      await interaction.editReply({ content: "❌ Membro não encontrado no servidor." });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const currentLvl = getMemberWarningLevel(member);
+    if (currentLvl >= 3) {
+      await interaction.editReply({
+        content: `⚠️ **${member.displayName}** já atingiu o limite máximo de **3 advertências** 🚨! Cabe à liderança aplicar a punição (rebaixamento/kick).`,
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
+
+    const nextLvl = currentLvl + 1;
+    await setMemberWarningLevel(member, nextLvl, `Advertência aplicada por ${interaction.user.tag}: ${motivo}`);
+
+    const levelNames = {
+      1: "⚠️ 1ª Advertência (1/3)",
+      2: "⚠️ 2ª Advertência (2/3)",
+      3: "🚨 3ª Advertência (3/3 — LIMITE DE PUNIÇÃO)",
+    };
+    const levelColors = { 1: 0xf1c40f, 2: 0xe67e22, 3: 0xe74c3c };
+
+    // Calcula data de expiração
+    const expiresAt = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+    const expiresStr = expiresAt.toLocaleDateString("pt-BR", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo"
+    });
+
+    // Agenda remoção automática da tag após os X dias
+    setTimeout(async () => {
+      try {
+        const freshMember = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (!freshMember) return;
+        const freshLvl = getMemberWarningLevel(freshMember);
+        if (freshLvl === nextLvl) {
+          // Só remove se ainda estiver no mesmo nível (não recebeu nova advertência)
+          await setMemberWarningLevel(freshMember, 0, `Advertência nível ${nextLvl} expirou após ${dias} dias`);
+          const { createAdvertenciaPainelEmbed, createAdvertenciaButton } = require("../commands/criar-categoria");
+          const expireEmbed = new EmbedBuilder()
+            .setColor(0x57f287)
+            .setTitle("✅ ADVERTÊNCIA EXPIRADA — FICHA LIMPA")
+            .setDescription(
+              `A advertência de nível **${nextLvl}** de <@${member.id}> (${member.displayName}) expirou após **${dias} dias**!\n` +
+              `A tag foi removida automaticamente. Membro com **ficha limpa**.`
+            )
+            .setFooter({ text: "Kokushibo • Sistema de Advertências Automático" })
+            .setTimestamp();
+          await logWarningToChannel(interaction.guild, expireEmbed);
+        }
+      } catch (err) {
+        console.warn(`Erro ao remover advertência automática de ${userId}:`, err.message);
+      }
+    }, dias * 24 * 60 * 60 * 1000);
+
+    const embedLog = new EmbedBuilder()
+      .setColor(levelColors[nextLvl])
+      .setTitle("⚠️ REGISTRO DISCIPLINAR — ADVERTÊNCIA APLICADA")
+      .setDescription("Uma advertência foi registrada oficialmente para o membro da legião.")
+      .addFields(
+        { name: "👤 Membro Advertido", value: `<@${member.id}> (${member.displayName})`, inline: true },
+        { name: "🎖️ Nível Atual", value: levelNames[nextLvl], inline: true },
+        { name: "📋 Motivo", value: motivo },
+        {
+          name: "⏰ Expiração Automática",
+          value: `A tag será removida em **${dias} dias** (aprox. ${expiresStr})\n*Após esse período a tag some sozinha.*`
+        },
+        {
+          name: nextLvl === 3 ? "🚨 ATENÇÃO — 3ª ADVERTÊNCIA" : "📌 Lembrete",
+          value: nextLvl === 3
+            ? "⚠️ **Esta é a 3ª e última advertência!** O membro deve ser **removido da guilda** conforme as regras da Fight Kings."
+            : `Na **3ª advertência** o membro é removido da guilda automaticamente.\nAdvertências acumuladas: **${nextLvl}/3**`
+        }
+      )
+      .setFooter({ text: `Aplicada por ${interaction.user.displayName || interaction.user.username} • Kokushibo • Fight Kings` })
+      .setTimestamp();
+
+    await logWarningToChannel(interaction.guild, embedLog);
+
+    await interaction.editReply({
+      content: `✅ **Advertência aplicada!** ${member.displayName} agora está em nível **${nextLvl}/3**.\nA tag será removida automaticamente em **${dias} dias**. *(Esta mensagem sumirá em 1m)*`,
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
+  }
+
   // Modal de nova categoria (criação de evento)
   if (interaction.customId === "evento_cat_nova") {
     const { pending } = require("../commands/evento-criar");
