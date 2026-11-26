@@ -137,12 +137,20 @@ function createConvocacaoPainel(tipo) {
           "👑 **Liderança:** Clique nos botões abaixo para abrir um evento PvE ou uma Raid Ludra sem precisar digitar comandos.\n" +
           "⚔️ **Membros:** Quando um evento for publicado, clique em **`✅ Confirmar Presença`** (seu **nick atual do Discord** será registrado na lista)."
     )
-    .addFields({
-      name: "🛡️ Regras da Lista de Presença",
-      value:
-        "• Para confirmar ou sair por conta própria, use os botões **`✅ Confirmar Presença`** e **`❌ Remover Presença`**.\n" +
-        "• Apenas **Comandantes, Sub Comandantes e Oficiais** podem usar **`🗑️ Remover Membro`** para tirar alguém da lista.",
-    })
+    .addFields(
+      {
+        name: "⚠️ AVISO OBRIGATÓRIO — PRESENÇA E ADVERTÊNCIA",
+        value:
+          "• **Todos que forem participar devem marcar presença** clicando em **`✅ Confirmar Presença`**.\n" +
+          "• **Quem marcar presença e não comparecer (ou faltar sem avisar) receberá ADVERTÊNCIA!**",
+      },
+      {
+        name: "🛡️ Regras da Lista de Presença",
+        value:
+          "• Para confirmar ou sair por conta própria, use os botões **`✅ Confirmar Presença`** e **`❌ Remover Presença`**.\n" +
+          "• Apenas **Comandantes, Sub Comandantes e Oficiais** podem usar **`🗑️ Remover Membro`** para tirar alguém da lista.",
+      }
+    )
     .setFooter({ text: "Kokushibo • Convocação Oficial • Fight Kings" })
     .setTimestamp();
 
