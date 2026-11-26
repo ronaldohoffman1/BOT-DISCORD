@@ -97,11 +97,15 @@ async function setMemberWarningLevel(member, targetLevel, reason = 'Ajuste de ad
 /**
  * Envia notificação oficial no canal de advertências
  */
-async function logWarningToChannel(guild, embed) {
+async function logWarningToChannel(guild, embed, fallbackChannel = null) {
+  const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const channelNames = ["sistema-de-advertencias", "advertencias-e-regras", "advertencias"];
-  const channel = guild.channels.cache.find(c =>
-    c.isTextBased() && channelNames.some(name => c.name.toLowerCase().includes(name))
-  );
+  const channel =
+    guild.channels.cache.find((c) => {
+      if (!c.isTextBased()) return false;
+      const clean = norm(c.name);
+      return channelNames.some((name) => clean.includes(name));
+    }) || fallbackChannel;
 
   if (channel) {
     try {

@@ -1621,7 +1621,7 @@ async function handleModal(interaction) {
             )
             .setFooter({ text: "Kokushibo • Sistema de Advertências Automático" })
             .setTimestamp();
-          await logWarningToChannel(interaction.guild, expireEmbed);
+          await logWarningToChannel(interaction.guild, expireEmbed, interaction.channel);
         }
       } catch (err) {
         console.warn(`Erro ao remover advertência automática de ${userId}:`, err.message);
@@ -1633,7 +1633,7 @@ async function handleModal(interaction) {
       .setTitle("⚠️ REGISTRO DISCIPLINAR — ADVERTÊNCIA APLICADA")
       .setDescription("Uma advertência foi registrada oficialmente para o membro da legião.")
       .addFields(
-        { name: "👤 Membro Advertido", value: `<@${member.id}> (${member.displayName})`, inline: true },
+        { name: "👤 Membro Advertido", value: `**${member.displayName}**`, inline: true },
         { name: "🎖️ Nível Atual", value: levelNames[nextLvl], inline: true },
         { name: "📋 Motivo", value: motivo },
         {
@@ -1647,13 +1647,13 @@ async function handleModal(interaction) {
             : `Na **3ª advertência** o membro é removido da guilda automaticamente.\nAdvertências acumuladas: **${nextLvl}/3**`
         }
       )
-      .setFooter({ text: `Aplicada por ${interaction.user.displayName || interaction.user.username} • Kokushibo • Fight Kings` })
+      .setFooter({ text: `Aplicada por ${interaction.member?.displayName || interaction.user.username} • Kokushibo • Fight Kings` })
       .setTimestamp();
 
-    await logWarningToChannel(interaction.guild, embedLog);
+    await logWarningToChannel(interaction.guild, embedLog, interaction.channel);
 
     await interaction.editReply({
-      content: `✅ **Advertência aplicada!** ${member.displayName} agora está em nível **${nextLvl}/3**.\nA tag será removida automaticamente em **${dias} dias**. *(Esta mensagem sumirá em 1m)*`,
+      content: `✅ **Advertência aplicada!** **${member.displayName}** agora está em nível **${nextLvl}/3**.\n📋 **Motivo:** ${motivo}\n⏰ A tag será removida automaticamente em **${dias} dias**. *(Esta mensagem sumirá em 1m)*`,
     });
     scheduleAutoDelete(interaction, 60000);
     return;
