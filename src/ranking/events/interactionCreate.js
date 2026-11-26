@@ -476,6 +476,48 @@ async function handleSelect(interaction, commands) {
     return;
   }
 
+  // ── Select: Membro escolhido na lista de advertência -> Abre Modal ──
+  if (interaction.customId === "select_adv_membro") {
+    if (!isEventLeader(interaction)) {
+      return interaction.reply({
+        content: "❌ **Acesso Negado**: Apenas a liderança pode aplicar advertências.",
+        ephemeral: true,
+      });
+    }
+
+    const targetUserId = interaction.values[0];
+    const targetMember = interaction.guild?.members?.cache?.get(targetUserId);
+    const targetNick = (targetMember?.displayName || targetUserId).slice(0, 30);
+
+    const modal = new ModalBuilder()
+      .setCustomId(`modal_aplicar_advertencia_user:${targetUserId}`)
+      .setTitle(`⚠️ Advertir: ${targetNick}`.slice(0, 45));
+
+    const inputMotivo = new TextInputBuilder()
+      .setCustomId("adv_motivo")
+      .setLabel("Motivo da Advertência")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Ex: Faltou na guerra sem aviso prévio.")
+      .setRequired(true)
+      .setMaxLength(300);
+
+    const inputDias = new TextInputBuilder()
+      .setCustomId("adv_dias")
+      .setLabel("Duração em dias (padrão: 14)")
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("14")
+      .setValue("14")
+      .setRequired(false)
+      .setMaxLength(3);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(inputMotivo),
+      new ActionRowBuilder().addComponents(inputDias)
+    );
+
+    return interaction.showModal(modal);
+  }
+
   if (interaction.customId !== "evento_cat_select") return;
 
   const { pending } = require("../commands/evento-criar");
@@ -512,7 +554,6 @@ async function handleButton(interaction) {
     interaction.customId === "btn_criar_evento_pvp" ||
     interaction.customId === "btn_criar_evento_pve" ||
     interaction.customId === "btn_ludra_manual_horario" ||
-    interaction.customId === "btn_advertir_membro" ||
     interaction.customId.startsWith("btn_ludra_preencher_lote:") ||
     ["aa", "ar"].includes(action);
 
@@ -530,6 +571,7 @@ async function handleButton(interaction) {
     "btn_encerrar_evento",
     "btn_historico_eventos",
     "btn_criar_ludra",
+    "btn_advertir_membro",
     "btn_listar_advertencias",
   ].includes(interaction.customId);
 
@@ -1192,51 +1234,65 @@ async function handleButton(interaction) {
     return;
   }
 
-  // ── Botão: Aplicar Advertência (painel fixo no canal de advertências) ──
+  // ── Botão: Aplicar Advertência (lista membros com cargo Legionário, Sub Comandante ou Oficial) ──
   if (interaction.customId === "btn_advertir_membro") {
     if (!isEventLeader(interaction)) {
-      return interaction.reply({
+      await interaction.editReply({
         content: "❌ **Acesso Negado**: Apenas a liderança pode aplicar advertências.",
-        ephemeral: true,
       });
+      scheduleAutoDelete(interaction, 30000);
+      return;
     }
 
-    const modal = new ModalBuilder()
-      .setCustomId("modal_aplicar_advertencia")
-      .setTitle("⚠️ Aplicar Advertência");
+    const { getMemberWarningLevel } = require("../../warningManager");
+    await interaction.guild.members.fetch();
 
-    const inputMembro = new TextInputBuilder()
-      .setCustomId("adv_membro")
-      .setLabel("@Mencione ou cole o ID do membro")
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder("Ex: @Kokushibo ou 123456789012345678")
-      .setRequired(true)
-      .setMaxLength(100);
+    const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const targetRoleKeywords = ["legionario", "sub comandante", "sub-comandante", "oficial"];
 
-    const inputMotivo = new TextInputBuilder()
-      .setCustomId("adv_motivo")
-      .setLabel("Motivo da Advertência")
-      .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder("Ex: Faltou na guerra sem aviso prévio.")
-      .setRequired(true)
-      .setMaxLength(300);
+    const eligible = [];
+    for (const member of interaction.guild.members.cache.values()) {
+      if (member.user.bot) continue;
+      const matchedRole = member.roles.cache.find((r) => {
+        const rn = norm(r.name);
+        return targetRoleKeywords.some((k) => rn.includes(k));
+      });
+      if (matchedRole) {
+        eligible.push({ member, roleName: matchedRole.name, advLvl: getMemberWarningLevel(member) });
+      }
+    }
 
-    const inputDias = new TextInputBuilder()
-      .setCustomId("adv_dias")
-      .setLabel("Duração em dias (padrão: 14)")
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder("14")
-      .setValue("14")
-      .setRequired(false)
-      .setMaxLength(3);
+    eligible.sort((a, b) => a.member.displayName.localeCompare(b.member.displayName, "pt-BR"));
 
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(inputMembro),
-      new ActionRowBuilder().addComponents(inputMotivo),
-      new ActionRowBuilder().addComponents(inputDias)
-    );
+    if (!eligible.length) {
+      await interaction.editReply({
+        content: "⚠️ Nenhum membro encontrado com os cargos **Legionário**, **Sub Comandante** ou **Oficial**.",
+      });
+      scheduleAutoDelete(interaction, 30000);
+      return;
+    }
 
-    return interaction.showModal(modal);
+    const select = new StringSelectMenuBuilder()
+      .setCustomId("select_adv_membro")
+      .setPlaceholder("Selecione o nick do membro para advertir...")
+      .addOptions(
+        eligible.slice(0, 25).map((item) => ({
+          label: item.member.displayName.slice(0, 100),
+          description: `${item.roleName} • Adv: ${item.advLvl}/3`.slice(0, 100),
+          value: item.member.id,
+        }))
+      );
+
+    await interaction.editReply({
+      content:
+        `⚠️ **Aplicar Advertência — Selecione o Membro:**\n` +
+        `Exibindo membros com cargo **Legionário**, **Sub Comandante** ou **Oficial**` +
+        `${eligible.length > 25 ? ` *(mostrando 25 de ${eligible.length})*` : ""}\n` +
+        `*(Esta mensagem sumirá em 1 minuto)*`,
+      components: [new ActionRowBuilder().addComponents(select)],
+    });
+    scheduleAutoDelete(interaction, 60000);
+    return;
   }
 
   // ── Botão: Listar Advertidos (painel fixo) ──
@@ -1468,8 +1524,11 @@ async function handleButton(interaction) {
 // ── Modais ────────────────────────────────────────────────────────────────────
 
 async function handleModal(interaction) {
-  // ── Modal: Aplicar Advertência (via botão do painel de advertências) ──
-  if (interaction.customId === "modal_aplicar_advertencia") {
+  // ── Modal: Aplicar Advertência (via seleção de membro ou modal direto) ──
+  if (
+    interaction.customId === "modal_aplicar_advertencia" ||
+    interaction.customId.startsWith("modal_aplicar_advertencia_user:")
+  ) {
     if (!isEventLeader(interaction)) {
       return interaction.reply({
         content: "❌ **Acesso Negado**: Apenas a liderança pode aplicar advertências.",
@@ -1488,19 +1547,23 @@ async function handleModal(interaction) {
 
     await ensureWarningRoles(interaction.guild);
 
-    const rawMembro = interaction.fields.getTextInputValue("adv_membro").trim();
     const motivo = interaction.fields.getTextInputValue("adv_motivo").trim();
     const diasRaw = interaction.fields.getTextInputValue("adv_dias").trim();
     const dias = parseInt(diasRaw) > 0 ? parseInt(diasRaw) : 14;
 
-    // Extrai o ID do usuário da menção ou texto puro
-    const mentionMatch = rawMembro.match(/<@!?(\d{17,20})>/);
-    const rawIdMatch = rawMembro.match(/\b(\d{17,20})\b/);
-    const userId = mentionMatch?.[1] || rawIdMatch?.[1] || null;
+    let userId = null;
+    if (interaction.customId.startsWith("modal_aplicar_advertencia_user:")) {
+      userId = interaction.customId.split(":")[1];
+    } else {
+      const rawMembro = interaction.fields.getTextInputValue("adv_membro").trim();
+      const mentionMatch = rawMembro.match(/<@!?(\d{17,20})>/);
+      const rawIdMatch = rawMembro.match(/\b(\d{17,20})\b/);
+      userId = mentionMatch?.[1] || rawIdMatch?.[1] || null;
+    }
 
     if (!userId) {
       await interaction.editReply({
-        content: "❌ Membro inválido. Use @mencione o membro ou cole o ID numérico dele.",
+        content: "❌ Membro inválido. Selecione o membro na lista.",
       });
       scheduleAutoDelete(interaction, 30000);
       return;
